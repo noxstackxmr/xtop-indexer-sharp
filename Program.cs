@@ -1,8 +1,25 @@
 using IndexerCore.Data;
+using IndexerCore.Monero;
+using IndexerCore.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
+builder.Services.AddOptions<MoneroOptions>()
+    .BindConfiguration(MoneroOptions.SectionName)
+    .ValidateDataAnnotations()
+    .Validate(options => Uri.TryCreate(options.RpcUrl, UriKind.Absolute, out var uri) &&
+                         uri.Scheme is "http" or "https" && string.IsNullOrEmpty(uri.Query) && string.IsNullOrEmpty(uri.Fragment),
+        "Monero:RpcUrl must be an absolute HTTP(S) base URL without a query or fragment.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<MoneroRpcClient>((services, http) =>
+{
+    var options = services.GetRequiredService<IOptions<MoneroOptions>>().Value;
+    http.BaseAddress = new Uri(options.RpcUrl.TrimEnd('/') + "/");
+    http.Timeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds);
+});
+builder.Services.AddHostedService<TransactionScanner>();
 
 var connectionString = builder.Configuration.GetConnectionString("IndexerDatabase");
 if (string.IsNullOrWhiteSpace(connectionString))
