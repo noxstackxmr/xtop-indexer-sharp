@@ -58,8 +58,19 @@ public static class XtopMessageReader
     }
 
     public static XtopMessage ReadMessage(ReadOnlySpan<byte> bytes, byte expectedNetwork)
+        => ReadEnvelope(bytes, expectedNetwork, 1024);
+
+    public static XtopMessage ReadAttachment(ReadOnlySpan<byte> bytes, byte expectedNetwork)
     {
-        if (bytes.Length > 1024) throw new FormatException("XTOP message exceeds 1024 bytes.");
+        var message = ReadEnvelope(bytes, expectedNetwork, 16_777_216);
+        if (message.Operation is not (0xC0 or 0xC1))
+            throw new FormatException("unsupported attachment operation");
+        return message;
+    }
+
+    private static XtopMessage ReadEnvelope(ReadOnlySpan<byte> bytes, byte expectedNetwork, int maximumLength)
+    {
+        if (bytes.Length > maximumLength) throw new FormatException($"XTOP message exceeds {maximumLength} bytes");
         if (!Take(ref bytes, 4).SequenceEqual("XTOP"u8))
             throw new FormatException("invalid XTOP magic");
         var version = Take(ref bytes, 1)[0];

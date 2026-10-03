@@ -9,6 +9,7 @@ namespace IndexerCore.Services;
 public sealed class ChainReorganization(
     IndexerDbContext db,
     MoneroRpcClient rpc,
+    AttachmentService attachmentService,
     SemaphoreSlim stateLock,
     IOptions<MoneroOptions> options,
     ILogger<ChainReorganization> logger)
@@ -72,9 +73,9 @@ public sealed class ChainReorganization(
                 .ExecuteDeleteAsync(cancellationToken);
             var attachments = db.Attachments.Where(a => a.Network == settings.XtopNetwork && attachmentIds.Contains(a.Id));
             await attachments.Where(a => !a.Chunks.Any()).ExecuteDeleteAsync(cancellationToken);
-            await attachments.ExecuteUpdateAsync(setters => setters
-                .SetProperty(a => a.Status, AttachmentStatus.Incomplete)
-                .SetProperty(a => a.Type, (byte?)null), cancellationToken);
+            foreach (var attachment in await attachments.ToListAsync(cancellationToken))
+                await attachmentService.RefreshAsync(attachment, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             logger.LogWarning("rolled back {Count} blocks from height {Height}", removed, firstChangedHeight);
             return (ancestor, checked((ulong)firstChangedHeight));

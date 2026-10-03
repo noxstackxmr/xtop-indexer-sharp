@@ -28,6 +28,8 @@ public sealed class MessageProcessor(
                     await using var scope = scopeFactory.CreateAsyncScope();
                     var db = scope.ServiceProvider.GetRequiredService<IndexerDbContext>();
                     var chunks = scope.ServiceProvider.GetRequiredService<DataChunkHandler>();
+                    var attachments = scope.ServiceProvider.GetRequiredService<AttachmentService>();
+                    var affected = new HashSet<Attachment>();
                     var messages = await db.Messages
                         .Where(m => (m.Status == MessageStatus.Pending ||
                                      (m.Status == MessageStatus.Unsupported && m.Version == XtopMessageReader.CurrentVersion) ||
@@ -46,7 +48,7 @@ public sealed class MessageProcessor(
                             message.Operation = envelope.Operation;
                             if (envelope.Operation == 0x01)
                             {
-                                await chunks.HandleAsync(message, envelope, stoppingToken);
+                                affected.Add(await chunks.HandleAsync(message, envelope, stoppingToken));
                                 message.Status = MessageStatus.Valid;
                             }
                             else
@@ -67,12 +69,17 @@ public sealed class MessageProcessor(
                         }
                     }
 
-                    if (messages.Count > 0)
+                    var ready = await attachments.GetReadyAsync(settings.XtopNetwork, stoppingToken);
+                    affected.UnionWith(ready);
+                    foreach (var attachment in affected.Where(a => a.Status == AttachmentStatus.Incomplete))
+                        await attachments.RefreshAsync(attachment, stoppingToken);
+
+                    if (db.ChangeTracker.HasChanges())
                     {
                         await db.SaveChangesAsync(stoppingToken);
-                        logger.LogInformation("processed {Count} saved messages", messages.Count);
+                        logger.LogInformation("processed {Count} saved messages and checked {Attachments} attachments", messages.Count, affected.Count);
                     }
-                    if (messages.Count == 100) continue;
+                    if (messages.Count == 100 || ready.Count == 100) continue;
                 }
                 finally
                 {

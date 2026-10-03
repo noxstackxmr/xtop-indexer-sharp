@@ -7,14 +7,15 @@ namespace IndexerCore.Services;
 
 public sealed class DataChunkHandler(IndexerDbContext db)
 {
-    public async Task HandleAsync(Message message, XtopMessage envelope, CancellationToken cancellationToken)
+    public async Task<Attachment> HandleAsync(Message message, XtopMessage envelope, CancellationToken cancellationToken)
     {
         var chunk = DataChunkReader.Read(envelope);
         if (!DataChunkMerkle.Verify(chunk))
             throw new FormatException("invalid chunk Merkle proof");
-        if (db.DataChunks.Local.Any(c => c.MessageId == message.TransactionId) ||
-            await db.DataChunks.AnyAsync(c => c.MessageId == message.TransactionId, cancellationToken))
-            return;
+        var existing = db.DataChunks.Local.FirstOrDefault(c => c.MessageId == message.TransactionId)?.Attachment;
+        existing ??= await db.DataChunks.Where(c => c.MessageId == message.TransactionId)
+            .Select(c => c.Attachment).SingleOrDefaultAsync(cancellationToken);
+        if (existing != null) return existing;
 
         var attachment = db.Attachments.Local.FirstOrDefault(a =>
             a.Network == message.Network && a.TotalLength == chunk.TotalLength &&
@@ -43,5 +44,6 @@ public sealed class DataChunkHandler(IndexerDbContext db)
             Index = chunk.Index,
             Count = chunk.Count
         });
+        return attachment;
     }
 }
