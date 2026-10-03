@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace IndexerCore.Monero;
 
 public sealed record MoneroChainInfo(ulong Height, string Network);
-public sealed record MoneroBlock(ulong Height, string Hash, string PreviousHash, string[] TransactionIds);
+public sealed record MoneroBlock(ulong Height, string Hash, string PreviousHash, DateTimeOffset Timestamp, string[] TransactionIds);
 public sealed record MoneroTransaction(string Id, byte[] Extra);
 
 public sealed class MoneroRpcClient(HttpClient http)
@@ -36,7 +36,8 @@ public sealed class MoneroRpcClient(HttpClient http)
 
         var ids = result.TryGetProperty("tx_hashes", out var hashes)
             ? hashes.EnumerateArray().Select(h => h.GetString()!).ToArray() : [];
-        return new MoneroBlock(height, header.GetProperty("hash").GetString()!, header.GetProperty("prev_hash").GetString()!, ids);
+        return new MoneroBlock(height, header.GetProperty("hash").GetString()!, header.GetProperty("prev_hash").GetString()!,
+            DateTimeOffset.FromUnixTimeSeconds(header.GetProperty("timestamp").GetInt64()), ids);
     }
 
     public async Task<MoneroTransaction[]> GetTransactionsAsync(MoneroBlock block, CancellationToken cancellationToken)

@@ -20,6 +20,7 @@ builder.Services.AddHttpClient<MoneroRpcClient>((services, http) =>
     http.Timeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds);
 });
 builder.Services.AddHostedService<TransactionScanner>();
+builder.Services.AddHostedService<MessageProcessor>();
 
 var connectionString = builder.Configuration.GetConnectionString("IndexerDatabase");
 if (string.IsNullOrWhiteSpace(connectionString))

@@ -9,7 +9,13 @@ public static class XtopMessageReader
 {
     public static XtopMessage? ReadExtra(ReadOnlySpan<byte> extra, byte expectedNetwork)
     {
-        XtopMessage? message = null;
+        var bytes = ExtractMessage(extra);
+        return bytes == null ? null : ReadMessage(bytes, expectedNetwork);
+    }
+
+    public static byte[]? ExtractMessage(ReadOnlySpan<byte> extra)
+    {
+        byte[]? message = null;
         while (!extra.IsEmpty)
         {
             var tag = Take(ref extra, 1)[0];
@@ -36,7 +42,7 @@ public static class XtopMessageReader
                     var carrier = Take(ref extra, ReadLength(ref extra, extra.Length));
                     if (!carrier.StartsWith("XTOP"u8)) break;
                     if (message != null) throw new FormatException("Duplicate XTOP carrier.");
-                    message = ReadMessage(carrier, expectedNetwork);
+                    message = carrier.ToArray();
                     break;
                 default:
                     // never search arbitrary bytes for magic
@@ -46,12 +52,13 @@ public static class XtopMessageReader
         return message;
     }
 
-    private static XtopMessage ReadMessage(ReadOnlySpan<byte> bytes, byte expectedNetwork)
+    public static XtopMessage ReadMessage(ReadOnlySpan<byte> bytes, byte expectedNetwork)
     {
         if (bytes.Length > 1024) throw new FormatException("XTOP message exceeds 1024 bytes.");
-        Take(ref bytes, 4);
+        if (!Take(ref bytes, 4).SequenceEqual("XTOP"u8))
+            throw new FormatException("invalid XTOP magic");
         var version = Take(ref bytes, 1)[0];
-        if (version != 1) throw new FormatException($"unsupported XTOP version {version}");
+        if (version != 1) throw new NotSupportedException($"unsupported XTOP version {version}");
         var network = Take(ref bytes, 1)[0];
         if (network != expectedNetwork)
             throw new FormatException($"expected XTOP network {expectedNetwork}, got {network}");

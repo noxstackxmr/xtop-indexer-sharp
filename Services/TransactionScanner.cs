@@ -1,11 +1,15 @@
+using IndexerCore.Data;
+using IndexerCore.Data.Entities;
 using IndexerCore.Monero;
 using IndexerCore.Protocol;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace IndexerCore.Services;
 
 public sealed class TransactionScanner(
     MoneroRpcClient rpc,
+    IServiceScopeFactory scopeFactory,
     IOptions<MoneroOptions> options,
     ILogger<TransactionScanner> logger) : BackgroundService
 {
@@ -18,50 +22,68 @@ public sealed class TransactionScanner(
             return;
         }
 
-        var nextHeight = settings.StartHeight;
-        MoneroBlock? lastBlock = null;
-        logger.LogInformation("Starting read-only scanning at height {Height}. The cursor is kept in memory.", nextHeight);
-
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                await using var scope = scopeFactory.CreateAsyncScope();
+                var db = scope.ServiceProvider.GetRequiredService<IndexerDbContext>();
+                var lastBlock = await db.Blocks.AsNoTracking()
+                    .Where(b => b.Network == settings.XtopNetwork)
+                    .OrderByDescending(b => b.Height)
+                    .FirstOrDefaultAsync(stoppingToken);
+                var nextHeight = lastBlock == null ? settings.StartHeight : checked((ulong)lastBlock.Height + 1);
                 var info = await rpc.GetInfoAsync(stoppingToken);
                 if (info.Network != settings.Network)
                     throw new InvalidDataException($"expected network {settings.Network}, got {info.Network}");
 
                 // unavailable or lagging node is not evidence of a reorganization
-                if (lastBlock != null && info.Height <= lastBlock.Height)
+                if (lastBlock != null && info.Height <= (ulong)lastBlock.Height)
                     throw new InvalidDataException("The daemon is behind the last scanned block; waiting.");
-                if (lastBlock != null &&
-                    (await rpc.GetBlockAsync(lastBlock.Height, stoppingToken)).Hash != lastBlock.Hash)
-                    RestartScan();
+                if (lastBlock != null)
+                {
+                    var currentTip = await rpc.GetBlockAsync((ulong)lastBlock.Height, stoppingToken);
+                    if (!Convert.FromHexString(currentTip.Hash).AsSpan().SequenceEqual(lastBlock.Hash))
+                        throw new InvalidDataException("stored chain changed; database rollback is required before scanning can continue");
+                }
 
                 var firstHeight = nextHeight;
                 for (var scanned = 0; scanned < 100 && nextHeight < info.Height; scanned++)
                 {
                     var block = await rpc.GetBlockAsync(nextHeight, stoppingToken);
-                    if (lastBlock != null && block.PreviousHash != lastBlock.Hash)
-                    {
-                        RestartScan();
-                        break;
-                    }
+                    if (lastBlock != null && !Convert.FromHexString(block.PreviousHash).AsSpan().SequenceEqual(lastBlock.Hash))
+                        throw new InvalidDataException("block does not extend the stored chain");
                     var transactions = await rpc.GetTransactionsAsync(block, stoppingToken);
                     if ((await rpc.GetBlockAsync(nextHeight, stoppingToken)).Hash != block.Hash)
-                    {
-                        RestartScan();
-                        break;
-                    }
+                        throw new InvalidDataException("block changed while its transactions were being read");
 
-                    foreach (var transaction in transactions)
+                    var storedBlock = new Block
                     {
+                        Network = settings.XtopNetwork,
+                        Height = checked((long)block.Height),
+                        Hash = Convert.FromHexString(block.Hash),
+                        PreviousHash = Convert.FromHexString(block.PreviousHash),
+                        Timestamp = block.Timestamp
+                    };
+                    for (var position = 0; position < transactions.Length; position++)
+                    {
+                        var transaction = transactions[position];
                         try
                         {
-                            var message = XtopMessageReader.ReadExtra(transaction.Extra, settings.XtopNetwork);
-                            if (message == null) continue;
-                            logger.LogInformation(
-                                "XTOP envelope at block {Height}, tx {TransactionId}: op 0x{Operation:X2}, payload {PayloadBytes} bytes, witnesses {WitnessCount}. Proofs are not verified yet.",
-                                block.Height, transaction.Id, message.Operation, message.Payload.Length, message.Witnesses.Length);
+                            var data = XtopMessageReader.ExtractMessage(transaction.Extra);
+                            if (data == null) continue;
+                            storedBlock.Transactions.Add(new Transaction
+                            {
+                                Hash = Convert.FromHexString(transaction.Id),
+                                Position = position,
+                                Message = new Message
+                                {
+                                    Data = data,
+                                    Version = data.Length > 4 ? data[4] : (byte)0,
+                                    Network = data.Length > 5 ? data[5] : (byte)0,
+                                    Operation = data.Length > 6 && data[4] == 1 ? data[6] : (byte)0
+                                }
+                            });
                         }
                         catch (FormatException exception)
                         {
@@ -70,7 +92,10 @@ public sealed class TransactionScanner(
                         }
                     }
 
-                    lastBlock = block;
+                    db.Blocks.Add(storedBlock);
+                    await db.SaveChangesAsync(stoppingToken);
+                    db.ChangeTracker.Clear();
+                    lastBlock = storedBlock;
                     nextHeight = checked(block.Height + 1);
                 }
                 if (nextHeight > firstHeight)
@@ -84,19 +109,10 @@ public sealed class TransactionScanner(
             }
             catch (Exception exception)
             {
-                logger.LogWarning(exception, "Scanning failed at height {Height}; the block will be retried.", nextHeight);
+                logger.LogWarning(exception, "scanning failed; retrying from the last saved block");
             }
 
             await Task.Delay(TimeSpan.FromSeconds(settings.PollIntervalSeconds), stoppingToken);
-        }
-
-        return;
-
-        void RestartScan()
-        {
-            logger.LogWarning("Chain history changed. Restarting the in-memory scan at height {Height}.", settings.StartHeight);
-            nextHeight = settings.StartHeight;
-            lastBlock = null;
         }
     }
 }

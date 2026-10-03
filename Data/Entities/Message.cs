@@ -5,7 +5,8 @@ public enum MessageStatus : byte
     Pending,
     Valid,
     Invalid,
-    Unsupported
+    Unsupported,
+    Parsed
 }
 
 public sealed class Message
