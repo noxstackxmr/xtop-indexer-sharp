@@ -19,6 +19,8 @@ builder.Services.AddHttpClient<MoneroRpcClient>((services, http) =>
     http.BaseAddress = new Uri(options.RpcUrl.TrimEnd('/') + "/");
     http.Timeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds);
 });
+builder.Services.AddSingleton(new SemaphoreSlim(1, 1));
+builder.Services.AddScoped<ChainReorganization>();
 builder.Services.AddHostedService<TransactionScanner>();
 builder.Services.AddHostedService<MessageProcessor>();
 

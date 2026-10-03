@@ -28,24 +28,9 @@ public sealed class TransactionScanner(
             {
                 await using var scope = scopeFactory.CreateAsyncScope();
                 var db = scope.ServiceProvider.GetRequiredService<IndexerDbContext>();
-                var lastBlock = await db.Blocks.AsNoTracking()
-                    .Where(b => b.Network == settings.XtopNetwork)
-                    .OrderByDescending(b => b.Height)
-                    .FirstOrDefaultAsync(stoppingToken);
-                var nextHeight = lastBlock == null ? settings.StartHeight : checked((ulong)lastBlock.Height + 1);
                 var info = await rpc.GetInfoAsync(stoppingToken);
-                if (info.Network != settings.Network)
-                    throw new InvalidDataException($"expected network {settings.Network}, got {info.Network}");
-
-                // unavailable or lagging node is not evidence of a reorganization
-                if (lastBlock != null && info.Height <= (ulong)lastBlock.Height)
-                    throw new InvalidDataException("The daemon is behind the last scanned block; waiting.");
-                if (lastBlock != null)
-                {
-                    var currentTip = await rpc.GetBlockAsync((ulong)lastBlock.Height, stoppingToken);
-                    if (!Convert.FromHexString(currentTip.Hash).AsSpan().SequenceEqual(lastBlock.Hash))
-                        throw new InvalidDataException("stored chain changed; database rollback is required before scanning can continue");
-                }
+                var reorganization = scope.ServiceProvider.GetRequiredService<ChainReorganization>();
+                var (lastBlock, nextHeight) = await reorganization.ReconcileAsync(info, stoppingToken);
 
                 var firstHeight = nextHeight;
                 for (var scanned = 0; scanned < 100 && nextHeight < info.Height; scanned++)
