@@ -6,3 +6,7 @@ riderModule.iml
 .idea
 appsettings.json
 launchsettings*
+/Tests/generate-merkle-vectors.py
+/Tests/MerkleVectors.json
+/Tests/Program.cs
+/Tests/IndexerCore.Tests.csproj

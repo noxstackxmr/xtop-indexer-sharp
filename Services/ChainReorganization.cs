@@ -62,9 +62,20 @@ public sealed class ChainReorganization(
             if (!string.Equals(anchor.Hash, confirmedAnchor.Hash, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("chain changed before rollback; retrying");
 
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var attachmentIds = await db.DataChunks
+                .Where(c => c.Message.Transaction.Block.Network == settings.XtopNetwork &&
+                            c.Message.Transaction.Block.Height >= firstChangedHeight)
+                .Select(c => c.AttachmentId).Distinct().ToArrayAsync(cancellationToken);
             var removed = await db.Blocks
                 .Where(b => b.Network == settings.XtopNetwork && b.Height >= firstChangedHeight)
                 .ExecuteDeleteAsync(cancellationToken);
+            var attachments = db.Attachments.Where(a => a.Network == settings.XtopNetwork && attachmentIds.Contains(a.Id));
+            await attachments.Where(a => !a.Chunks.Any()).ExecuteDeleteAsync(cancellationToken);
+            await attachments.ExecuteUpdateAsync(setters => setters
+                .SetProperty(a => a.Status, AttachmentStatus.Incomplete)
+                .SetProperty(a => a.Type, (byte?)null), cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             logger.LogWarning("rolled back {Count} blocks from height {Height}", removed, firstChangedHeight);
             return (ancestor, checked((ulong)firstChangedHeight));
         }

@@ -40,8 +40,9 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
             .OnDelete(DeleteBehavior.Cascade);
 
         var attachment = modelBuilder.Entity<Attachment>();
-        attachment.HasIndex(a => new { a.Network, a.Hash, a.TotalLength }).IsUnique();
+        attachment.HasIndex(a => new { a.Network, a.Hash, a.TotalLength, a.MerkleRoot }).IsUnique();
         attachment.Property(a => a.Hash).HasMaxLength(32);
+        attachment.Property(a => a.MerkleRoot).HasMaxLength(32);
         attachment.Property(a => a.Status).HasConversion<byte>();
 
         var chunk = modelBuilder.Entity<DataChunk>();

@@ -3,10 +3,15 @@ using System.Buffers.Binary;
 namespace IndexerCore.Protocol;
 
 public sealed record XtopWitness(byte Kind, ushort Profile, byte[] Proof);
-public sealed record XtopMessage(byte Operation, byte[] Payload, XtopWitness[] Witnesses);
+public sealed record XtopMessage(byte Version, byte[] ConfigHash, byte Operation, byte[] Payload, XtopWitness[] Witnesses);
 
 public static class XtopMessageReader
 {
+    public const byte CurrentVersion = 14;
+
+    public static byte ReadOperation(ReadOnlySpan<byte> bytes)
+        => bytes.Length > 38 && bytes[4] == CurrentVersion ? bytes[38] : (byte)0;
+
     public static XtopMessage? ReadExtra(ReadOnlySpan<byte> extra, byte expectedNetwork)
     {
         var bytes = ExtractMessage(extra);
@@ -58,10 +63,11 @@ public static class XtopMessageReader
         if (!Take(ref bytes, 4).SequenceEqual("XTOP"u8))
             throw new FormatException("invalid XTOP magic");
         var version = Take(ref bytes, 1)[0];
-        if (version != 1) throw new NotSupportedException($"unsupported XTOP version {version}");
+        if (version != CurrentVersion) throw new NotSupportedException($"unsupported XTOP version {version}");
         var network = Take(ref bytes, 1)[0];
         if (network != expectedNetwork)
             throw new FormatException($"expected XTOP network {expectedNetwork}, got {network}");
+        var configHash = Take(ref bytes, 32).ToArray();
         var operation = Take(ref bytes, 1)[0];
         var payloadLength = BinaryPrimitives.ReadUInt32LittleEndian(Take(ref bytes, 4));
         if (payloadLength > bytes.Length) throw new FormatException("Truncated XTOP payload.");
@@ -77,7 +83,7 @@ public static class XtopMessageReader
             if (length is < 1 or > 4096) throw new FormatException("Invalid witness length.");
             witnesses[i] = new XtopWitness(kind, profile, [.. Take(ref bytes, length)]);
         }
-        return !bytes.IsEmpty ? throw new FormatException("Unexpected trailing XTOP bytes.") : new XtopMessage(operation, payload, witnesses);
+        return !bytes.IsEmpty ? throw new FormatException("Unexpected trailing XTOP bytes.") : new XtopMessage(version, configHash, operation, payload, witnesses);
     }
 
     private static ReadOnlySpan<byte> Take(ref ReadOnlySpan<byte> bytes, int length)

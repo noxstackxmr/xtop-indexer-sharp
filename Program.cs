@@ -21,6 +21,7 @@ builder.Services.AddHttpClient<MoneroRpcClient>((services, http) =>
 });
 builder.Services.AddSingleton(new SemaphoreSlim(1, 1));
 builder.Services.AddScoped<ChainReorganization>();
+builder.Services.AddScoped<DataChunkHandler>();
 builder.Services.AddHostedService<TransactionScanner>();
 builder.Services.AddHostedService<MessageProcessor>();
 

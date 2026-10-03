@@ -27,8 +27,12 @@ public sealed class MessageProcessor(
                 {
                     await using var scope = scopeFactory.CreateAsyncScope();
                     var db = scope.ServiceProvider.GetRequiredService<IndexerDbContext>();
+                    var chunks = scope.ServiceProvider.GetRequiredService<DataChunkHandler>();
                     var messages = await db.Messages
-                        .Where(m => m.Status == MessageStatus.Pending && m.Transaction.Block.Network == settings.XtopNetwork)
+                        .Where(m => (m.Status == MessageStatus.Pending ||
+                                     (m.Status == MessageStatus.Unsupported && m.Version == XtopMessageReader.CurrentVersion) ||
+                                     (m.Status == MessageStatus.Parsed && m.Operation == 0x01)) &&
+                                    m.Transaction.Block.Network == settings.XtopNetwork)
                         .OrderBy(m => m.Transaction.Block.Height)
                         .ThenBy(m => m.Transaction.Position)
                         .Take(100)
@@ -38,8 +42,17 @@ public sealed class MessageProcessor(
                     {
                         try
                         {
-                            XtopMessageReader.ReadMessage(message.Data, settings.XtopNetwork);
-                            message.Status = MessageStatus.Parsed;
+                            var envelope = XtopMessageReader.ReadMessage(message.Data, settings.XtopNetwork);
+                            message.Operation = envelope.Operation;
+                            if (envelope.Operation == 0x01)
+                            {
+                                await chunks.HandleAsync(message, envelope, stoppingToken);
+                                message.Status = MessageStatus.Valid;
+                            }
+                            else
+                            {
+                                message.Status = MessageStatus.Parsed;
+                            }
                             message.Error = null;
                         }
                         catch (NotSupportedException exception)
@@ -57,7 +70,7 @@ public sealed class MessageProcessor(
                     if (messages.Count > 0)
                     {
                         await db.SaveChangesAsync(stoppingToken);
-                        logger.LogInformation("checked envelopes for {Count} saved messages", messages.Count);
+                        logger.LogInformation("processed {Count} saved messages", messages.Count);
                     }
                     if (messages.Count == 100) continue;
                 }

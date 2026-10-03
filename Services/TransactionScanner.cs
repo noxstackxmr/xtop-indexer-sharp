@@ -66,7 +66,7 @@ public sealed class TransactionScanner(
                                     Data = data,
                                     Version = data.Length > 4 ? data[4] : (byte)0,
                                     Network = data.Length > 5 ? data[5] : (byte)0,
-                                    Operation = data.Length > 6 && data[4] == 1 ? data[6] : (byte)0
+                                    Operation = XtopMessageReader.ReadOperation(data)
                                 }
                             });
                         }

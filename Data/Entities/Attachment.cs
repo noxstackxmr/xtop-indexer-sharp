@@ -12,6 +12,7 @@ public sealed class Attachment
     public long Id { get; set; }
     public byte Network { get; set; }
     public required byte[] Hash { get; set; }
+    public required byte[] MerkleRoot { get; set; }
     public long TotalLength { get; set; }
     public byte? Type { get; set; }
     public AttachmentStatus Status { get; set; } = AttachmentStatus.Incomplete;
