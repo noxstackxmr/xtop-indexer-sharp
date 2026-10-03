@@ -63,8 +63,17 @@ public static class XtopMessageReader
     public static XtopMessage ReadAttachment(ReadOnlySpan<byte> bytes, byte expectedNetwork)
     {
         var message = ReadEnvelope(bytes, expectedNetwork, 16_777_216);
-        if (message.Operation is not (0xC0 or 0xC1))
-            throw new FormatException("unsupported attachment operation");
+        switch (message.Operation)
+        {
+            case 0xC0:
+                CollectionTermsReader.Read(message);
+                break;
+            case 0xC1:
+                MediaLocationsReader.Read(message);
+                break;
+            default:
+                throw new FormatException("unsupported attachment operation");
+        }
         return message;
     }
 

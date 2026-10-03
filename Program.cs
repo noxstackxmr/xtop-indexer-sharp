@@ -23,6 +23,7 @@ builder.Services.AddSingleton(new SemaphoreSlim(1, 1));
 builder.Services.AddScoped<ChainReorganization>();
 builder.Services.AddScoped<DataChunkHandler>();
 builder.Services.AddScoped<AttachmentService>();
+builder.Services.AddScoped<CollectionTermsService>();
 builder.Services.AddHostedService<TransactionScanner>();
 builder.Services.AddHostedService<MessageProcessor>();
 
