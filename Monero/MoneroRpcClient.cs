@@ -5,7 +5,7 @@ namespace IndexerCore.Monero;
 
 public sealed record MoneroChainInfo(ulong Height, string Network);
 public sealed record MoneroBlock(ulong Height, string Hash, string PreviousHash, DateTimeOffset Timestamp, string[] TransactionIds);
-public sealed record MoneroTransaction(string Id, byte[] Extra);
+public sealed record MoneroTransaction(string Id, byte[] Extra, byte[] NativeData);
 
 public sealed class MoneroRpcClient(HttpClient http)
 {
@@ -64,7 +64,11 @@ public sealed class MoneroRpcClient(HttpClient http)
 
                 using var decoded = JsonDocument.Parse(entry.GetProperty("as_json").GetString()!);
                 var extra = decoded.RootElement.GetProperty("extra").EnumerateArray().Select(b => b.GetByte()).ToArray();
-                if (!transactions.TryAdd(id, new MoneroTransaction(id, extra)))
+                var hex = entry.TryGetProperty("pruned_as_hex", out var pruned) ? pruned.GetString() : null;
+                if (string.IsNullOrEmpty(hex)) hex = entry.GetProperty("as_hex").GetString();
+                if (string.IsNullOrEmpty(hex)) throw new InvalidDataException("missing native transaction bytes");
+                var native = Convert.FromHexString(hex);
+                if (!transactions.TryAdd(id, new MoneroTransaction(id, extra, native)))
                     throw new InvalidDataException("The daemon returned a duplicate transaction.");
             }
         }

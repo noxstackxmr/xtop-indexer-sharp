@@ -61,6 +61,7 @@ public sealed class TransactionScanner(
                             {
                                 Hash = Convert.FromHexString(transaction.Id),
                                 Position = position,
+                                NativeData = transaction.NativeData,
                                 Message = new Message
                                 {
                                     Data = data,

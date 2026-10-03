@@ -1,6 +1,8 @@
 using IndexerCore.Data;
 using IndexerCore.Monero;
 using IndexerCore.Services;
+using IndexerCore.Protocol;
+using IndexerCore.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -20,10 +22,14 @@ builder.Services.AddHttpClient<MoneroRpcClient>((services, http) =>
     http.Timeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds);
 });
 builder.Services.AddSingleton(new SemaphoreSlim(1, 1));
+builder.Services.AddOptions<ProtocolOptions>().BindConfiguration(ProtocolOptions.SectionName);
+builder.Services.AddSingleton<ProtocolConfigurationRegistry>();
 builder.Services.AddScoped<ChainReorganization>();
 builder.Services.AddScoped<DataChunkHandler>();
 builder.Services.AddScoped<AttachmentService>();
 builder.Services.AddScoped<CollectionTermsService>();
+builder.Services.AddScoped<CollectionCreateHandler>();
+builder.Services.AddScoped<MessageBatchProcessor>();
 builder.Services.AddHostedService<TransactionScanner>();
 builder.Services.AddHostedService<MessageProcessor>();
 
@@ -41,8 +47,15 @@ var app = builder.Build();
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<IndexerDbContext>();
+    var configurations = scope.ServiceProvider.GetRequiredService<ProtocolConfigurationRegistry>();
+    if (scope.ServiceProvider.GetRequiredService<IOptions<ProtocolOptions>>().Value.Configurations.Count == 0)
+        app.Logger.LogInformation("no protocol configurations; collection creation will remain unsupported");
     app.Logger.LogInformation("Applying database migrations...");
     await db.Database.MigrateAsync();
+    await configurations.ValidateHistoryAsync(db, CancellationToken.None);
+    await db.Messages.Where(m => m.Status == MessageStatus.Unsupported && m.Version == XtopMessageReader.CurrentVersion &&
+                                (m.Operation == 1 || m.Operation == 2))
+        .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.Status, MessageStatus.Pending).SetProperty(m => m.Error, (string?)null));
     app.Logger.LogInformation("Database is up to date.");
 }
 

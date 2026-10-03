@@ -12,10 +12,14 @@ public sealed class DataChunkHandler(IndexerDbContext db)
         var chunk = DataChunkReader.Read(envelope);
         if (!DataChunkMerkle.Verify(chunk))
             throw new FormatException("invalid chunk Merkle proof");
-        var existing = db.DataChunks.Local.FirstOrDefault(c => c.MessageId == message.TransactionId)?.Attachment;
-        existing ??= await db.DataChunks.Where(c => c.MessageId == message.TransactionId)
-            .Select(c => c.Attachment).SingleOrDefaultAsync(cancellationToken);
-        if (existing != null) return existing;
+        var existing = db.DataChunks.Local.FirstOrDefault(c => c.MessageId == message.TransactionId);
+        existing ??= await db.DataChunks.Include(c => c.Attachment)
+            .SingleOrDefaultAsync(c => c.MessageId == message.TransactionId, cancellationToken);
+        if (existing != null)
+        {
+            existing.ConfigHash = envelope.ConfigHash;
+            return existing.Attachment;
+        }
 
         var attachment = db.Attachments.Local.FirstOrDefault(a =>
             a.Network == message.Network && a.TotalLength == chunk.TotalLength &&
@@ -39,6 +43,7 @@ public sealed class DataChunkHandler(IndexerDbContext db)
         db.DataChunks.Add(new DataChunk
         {
             MessageId = message.TransactionId,
+            ConfigHash = envelope.ConfigHash,
             Message = message,
             Attachment = attachment,
             Index = chunk.Index,

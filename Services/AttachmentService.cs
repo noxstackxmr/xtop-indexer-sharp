@@ -29,17 +29,23 @@ public sealed class AttachmentService(IndexerDbContext db)
     }
 
     public Task<XtopMessage?> ReadBeforeAsync(Attachment attachment, long height, int position, CancellationToken cancellationToken)
+        => ReadBeforeAsync(attachment, height, position, null, cancellationToken);
+
+    public Task<XtopMessage?> ReadBeforeAsync(Attachment attachment, long height, int position, byte[]? configHash,
+        CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(height);
         ArgumentOutOfRangeException.ThrowIfNegative(position);
-        return ReadAsync(attachment, height, position, cancellationToken);
+        return ReadAsync(attachment, height, position, cancellationToken, configHash);
     }
 
-    private async Task<XtopMessage?> ReadAsync(Attachment attachment, long? height, int position, CancellationToken cancellationToken)
+    private async Task<XtopMessage?> ReadAsync(Attachment attachment, long? height, int position, CancellationToken cancellationToken,
+        byte[]? configHash = null)
     {
         if (attachment.TotalLength is < 1 or > 16_777_216)
             throw new FormatException("invalid attachment length");
         var query = db.DataChunks.Where(c => c.AttachmentId == attachment.Id);
+        if (configHash != null) query = query.Where(c => c.ConfigHash == configHash);
         if (height.HasValue)
             query = query.Where(c => c.Message.Transaction.Block.Height < height.Value ||
                                      (c.Message.Transaction.Block.Height == height.Value && c.Message.Transaction.Position < position));
@@ -51,6 +57,7 @@ public sealed class AttachmentService(IndexerDbContext db)
                 .ToListAsync(cancellationToken);
         var additions = db.DataChunks.Local.Where(c => ReferenceEquals(c.Attachment, attachment) &&
                                                        db.Entry(c).State == EntityState.Added).ToList();
+        if (configHash != null) additions = additions.Where(c => c.ConfigHash.AsSpan().SequenceEqual(configHash)).ToList();
         if (height.HasValue && additions.Count > 0)
         {
             var ids = additions.Select(c => c.MessageId).ToArray();
@@ -73,7 +80,10 @@ public sealed class AttachmentService(IndexerDbContext db)
         var assembly = new AttachmentAssembly(attachment.Hash, checked((uint)attachment.TotalLength), attachment.MerkleRoot);
         void Add(Publication publication, byte[] bytes)
         {
-            var chunk = DataChunkReader.Read(XtopMessageReader.ReadMessage(bytes, attachment.Network));
+            var envelope = XtopMessageReader.ReadMessage(bytes, attachment.Network);
+            if (configHash != null && !envelope.ConfigHash.AsSpan().SequenceEqual(configHash))
+                throw new FormatException("chunk configuration mismatch");
+            var chunk = DataChunkReader.Read(envelope);
             if (publication.Index != chunk.Index || publication.Count != chunk.Count)
                 throw new FormatException("chunk record does not match its message");
             assembly.Add(chunk);
@@ -98,7 +108,11 @@ public sealed class AttachmentService(IndexerDbContext db)
         }
 
         var data = assembly.Build(cancellationToken);
-        return data == null ? null : XtopMessageReader.ReadAttachment(data, attachment.Network);
+        if (data == null) return null;
+        var message = XtopMessageReader.ReadAttachment(data, attachment.Network);
+        if (configHash != null && !message.ConfigHash.AsSpan().SequenceEqual(configHash))
+            throw new FormatException("attachment configuration mismatch");
+        return message;
     }
 
     private sealed record Publication(long MessageId, int Index, int Count);

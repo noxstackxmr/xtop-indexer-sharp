@@ -11,6 +11,7 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<DataChunk> DataChunks => Set<DataChunk>();
     public DbSet<Collection> Collections => Set<Collection>();
+    public DbSet<CollectionOutput> CollectionOutputs => Set<CollectionOutput>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +49,7 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
         var chunk = modelBuilder.Entity<DataChunk>();
         chunk.HasKey(c => c.MessageId);
         chunk.HasIndex(c => new { c.AttachmentId, c.Count, c.Index });
+        chunk.Property(c => c.ConfigHash).HasMaxLength(32);
         chunk.HasOne(c => c.Message)
             .WithOne()
             .HasForeignKey<DataChunk>(c => c.MessageId)
@@ -58,6 +60,9 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
             .OnDelete(DeleteBehavior.Restrict);
 
         var collection = modelBuilder.Entity<Collection>();
+        collection.HasIndex(c => new { c.Network, c.ProtocolId }).IsUnique();
+        collection.Property(c => c.ProtocolId).HasMaxLength(32);
+        collection.Property(c => c.ConfigHash).HasMaxLength(32);
         collection.Property(c => c.Name).HasMaxLength(64);
         collection.Property(c => c.PrimaryPayout).HasMaxLength(64);
         collection.Property(c => c.RoyaltyPayout).HasMaxLength(64);
@@ -74,5 +79,17 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
             .WithMany()
             .HasForeignKey(c => c.LocationsAttachmentId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        var output = modelBuilder.Entity<CollectionOutput>();
+        output.HasIndex(o => new { o.CollectionId, o.OutputIndex }).IsUnique();
+        output.HasIndex(o => new { o.CollectionId, o.Kind }).IsUnique();
+        output.HasIndex(o => new { o.Network, o.KeyImage }).IsUnique();
+        output.Property(o => o.Kind).HasConversion<byte>();
+        output.Property(o => o.PublicKey).HasMaxLength(32);
+        output.Property(o => o.KeyImage).HasMaxLength(32);
+        output.Property(o => o.OwnerKey).HasMaxLength(32);
+        output.Property(o => o.NominalAmount).HasPrecision(20, 0);
+        output.HasOne(o => o.Collection).WithMany(c => c.Outputs)
+            .HasForeignKey(o => o.CollectionId).OnDelete(DeleteBehavior.Cascade);
     }
 }
