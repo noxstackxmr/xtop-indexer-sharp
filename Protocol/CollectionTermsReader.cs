@@ -32,10 +32,7 @@ public static class CollectionTermsReader
         if (royaltyBps > 10000) throw new FormatException("royalty exceeds 10000 bps");
         var managerPermissions = reader.ReadByte();
         if (managerPermissions != 0) throw new FormatException("unsupported manager permissions");
-        var hash = reader.Take(32).ToArray();
-        var totalLength = reader.ReadUInt32();
-        if (totalLength is < 1 or > 16_777_216) throw new FormatException("invalid locations attachment length");
-        var locations = new ChunkReference(hash, totalLength, reader.Take(32).ToArray());
+        var locations = reader.ReadChunkReference();
         var primaryPrice = reader.ReadUInt64();
         var saleStartUtc = reader.ReadUInt64();
         if (saleStartUtc > 253402300799) throw new FormatException("sale start exceeds supported UTC range");

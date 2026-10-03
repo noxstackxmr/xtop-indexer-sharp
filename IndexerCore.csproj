@@ -8,6 +8,9 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <None Include="../ProtocolTestApplication/ProtocoleTestApp/Monero/Native/build/xtop_monero.dll"
+              Link="xtop_monero.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+              Condition="'$(OS)' == 'Windows_NT' And Exists('../ProtocolTestApplication/ProtocoleTestApp/Monero/Native/build/xtop_monero.dll')" />
         <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0"/>
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">

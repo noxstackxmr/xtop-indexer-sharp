@@ -11,6 +11,14 @@ internal ref struct PayloadReader(ReadOnlySpan<byte> data)
     public uint ReadUInt32() => BinaryPrimitives.ReadUInt32LittleEndian(Take(4));
     public ulong ReadUInt64() => BinaryPrimitives.ReadUInt64LittleEndian(Take(8));
 
+    public ChunkReference ReadChunkReference()
+    {
+        var hash = Take(32).ToArray();
+        var length = ReadUInt32();
+        if (length is < 1 or > 16_777_216) throw new FormatException("invalid attachment reference length");
+        return new ChunkReference(hash, length, Take(32).ToArray());
+    }
+
     public ReadOnlySpan<byte> Take(int length)
     {
         if (length < 0 || length > remaining.Length)
