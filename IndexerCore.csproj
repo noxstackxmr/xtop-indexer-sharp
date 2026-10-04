@@ -18,6 +18,7 @@
               Condition="'$(NativeLibraryFile)' != ''" />
         <None Update="Monero/Native/vendor/monero/LICENSE" TargetPath="licenses/monero/LICENSE"
               CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+        <None Update="LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
         <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0"/>
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">

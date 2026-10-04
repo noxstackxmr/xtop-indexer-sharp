@@ -31,3 +31,7 @@ dotnet build
 ```
 
 Native binaries are built in `Monero/Native/build`. Build and publish copy the matching binary beside the application and the Monero license to `licenses/monero/LICENSE`. Rebuild the native library after changing its sources. Binaries and compiler caches are excluded from Git.
+
+## License
+
+[AGPL-3.0-only](LICENSE). Vendored Monero code retains its [upstream license](Monero/Native/vendor/monero/LICENSE).
