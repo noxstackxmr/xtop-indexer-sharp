@@ -18,7 +18,7 @@ public sealed class IssuanceQueryService(IndexerDbContext db)
             .Select(o => new { o.RangeStart, o.RangeEnd, o.Kind, o.SourceMessage.Transaction.Hash, o.OutputIndex,
                 o.PublicKey, o.KeyImage, o.OwnerKey, o.NominalAmount }).ToListAsync(cancellationToken);
         return outputs.Select(o => new PreparedOutput(o.RangeStart!.Value, o.RangeEnd!.Value - o.RangeStart.Value,
-            o.Kind == CollectionOutputKind.Nft ? "prepared_unsold" : "issuance", o.Hash, o.OutputIndex,
+            o.Kind == CollectionOutputKind.Item ? "prepared_unsold" : "issuance", o.Hash, o.OutputIndex,
             o.PublicKey, o.KeyImage, o.OwnerKey, o.NominalAmount)).ToArray();
     }
 }

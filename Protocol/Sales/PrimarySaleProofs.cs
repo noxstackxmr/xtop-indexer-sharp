@@ -15,10 +15,7 @@ public static class PrimarySaleProofs
     public const ushort Profile = 0xFF07;
     public static ulong Fee(PrimarySalePolicy policy) => checked((ulong)((UInt128)policy.Price * policy.FeeBps / 10_000));
     public static int MessageLength(PrimarySalePolicy policy) => Fee(policy) == 0 ? 562 : 659;
-    public static byte[] ItemId(byte[] collection, uint serial) => MoneroProofCrypto.Hash(PrimarySaleEncoding.Write(w =>
-    {
-        w.Write("XTOP:ITEM:V1\0"u8); w.Write(collection); w.Write(serial);
-    }));
+    public static byte[] ItemId(byte[] collection, uint serial) => Items.ItemIdentity.Derive(collection, serial);
 
     private static void Binding(BinaryWriter w, NewBinding b)
     {

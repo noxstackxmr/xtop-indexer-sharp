@@ -38,7 +38,7 @@ public sealed class PrimaryPurchaseHandler(IndexerDbContext db, ProtocolConfigur
                 .Include(o => o.Purchase).Include(o => o.PurchaseOrigin)
                 .SingleOrDefaultAsync(o => o.Network == block.Network && o.KeyImage == image, cancellationToken);
             if (source == null) continue;
-            if (source.Kind != CollectionOutputKind.Nft || source.RangeStart == null || source.RangeEnd != source.RangeStart + 1 ||
+            if (source.Kind != CollectionOutputKind.Item || source.RangeStart == null || source.RangeEnd != source.RangeStart + 1 ||
                 source.RangeStart < 0 || source.RangeEnd > source.Collection.MaxSupply || source.PurchaseOrigin != null ||
                 (source.Purchase != null && source.Purchase.PurchaseMessageId != message.TransactionId))
                 throw new FormatException("primary purchase requires prepared unsold NFT outputs");
@@ -83,7 +83,8 @@ public sealed class PrimaryPurchaseHandler(IndexerDbContext db, ProtocolConfigur
             var source = sources[i]; var buyer = buyers[i];
             var successor = new CollectionOutput
             {
-                Collection = source.Collection, SourceMessage = message, Network = block.Network, Kind = CollectionOutputKind.Nft,
+                Collection = source.Collection, SourceMessage = message, Network = block.Network, Kind = CollectionOutputKind.Item,
+                ItemId = PrimarySaleProofs.ItemId(source.Collection.ProtocolId, checked((uint)source.RangeStart!.Value)),
                 OutputIndex = buyer.OutputIndex, PublicKey = native.Outputs[buyer.OutputIndex].Key, KeyImage = buyer.KeyImage,
                 OwnerKey = buyer.OwnerKey, NominalAmount = buyer.NominalAmount, RangeStart = source.RangeStart, RangeEnd = source.RangeEnd
             };

@@ -6,14 +6,16 @@ public sealed record CollectionCreationResponse(string TransactionId, long Block
     int TransactionPosition, DateTimeOffset BlockTimeUtc);
 
 public sealed record CollectionSummaryResponse(string Id, string Name, long MaxSupply, string MetadataMode,
-    string MetadataState, string PrimaryPriceAtomic, DateTimeOffset SaleStartUtc, int RoyaltyBps, CollectionCreationResponse Creation);
+    string MetadataState, string PrimaryPriceAtomic, DateTimeOffset SaleStartUtc, int RoyaltyBps, CollectionCreationResponse Creation,
+    long PreparedCount, long MintedCount, string PrimaryVolumeAtomic);
 
 public sealed record CollectionListResponse(string Network, byte NetworkId, ScannedTipResponse? ScannedTip,
     int Page, int PageSize, long Total, CollectionSummaryResponse[] Items);
 
 public sealed record PayoutResponse(string PublicSpendKey, string PublicViewKey);
 
-public sealed record PrimarySaleTermsResponse(string PriceAtomic, DateTimeOffset StartUtc, PayoutResponse Payout);
+public sealed record PrimarySaleTermsResponse(string PriceAtomic, DateTimeOffset StartUtc, PayoutResponse Payout,
+    int? PlatformFeeBps, string? PlatformFeeAtomic, string? TotalPriceAtomic);
 
 public sealed record RoyaltyTermsResponse(int BasisPoints, PayoutResponse Payout);
 
@@ -35,4 +37,5 @@ public sealed record CollectionDetailsResponse(string Id, string Network, byte N
     PrimarySaleTermsResponse PrimarySale, RoyaltyTermsResponse Royalty, CollectionCreationResponse Creation,
     AttachmentReferenceResponse TermsAttachment, AttachmentReferenceResponse LocationsAttachment,
     MediaLocationResponse[] Locations, CreationOutputResponse[] CreationOutputs,
-    CurrentControlResponse CurrentControl, CollectionChangeResponse? LastChange);
+    CurrentControlResponse CurrentControl, CollectionChangeResponse? LastChange,
+    long PreparedCount, long MintedCount, string PrimaryVolumeAtomic);

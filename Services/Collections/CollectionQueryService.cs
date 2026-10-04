@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 namespace IndexerCore.Services.Collections;
 
 public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateService states,
-    IOptions<MoneroOptions> options)
+    IOptions<MoneroOptions> options, ProtocolConfigurationRegistry configurations)
 {
     public async Task<CollectionListResponse> ListAsync(int page, int pageSize, CancellationToken cancellationToken)
     {
@@ -28,6 +28,10 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateS
             .Select(c => new
             {
                 c.ProtocolId, c.Name, c.MaxSupply, c.MetadataMode, c.PrimaryPrice, c.SaleStartUtc, c.RoyaltyBps,
+                PreparedCount = db.CollectionOutputs.LongCount(o => o.CollectionId == c.Id && o.Kind == CollectionOutputKind.Item &&
+                    o.Split == null && o.Purchase == null && o.PurchaseOrigin == null),
+                MintedCount = db.PrimaryPurchaseItems.LongCount(i => i.CollectionId == c.Id),
+                PrimaryVolume = db.PrimaryPurchases.Where(p => p.CollectionId == c.Id).Sum(p => (decimal?)p.CreatorAmount) ?? 0,
                 Revealed = c.Changes.OrderByDescending(change => change.Message.Transaction.Block.Height)
                     .ThenByDescending(change => change.Message.Transaction.Position).Select(change => change.Revealed).FirstOrDefault(),
                 Height = c.CreationMessage.Transaction.Block.Height,
@@ -38,7 +42,8 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateS
         var items = rows.Select(c => new CollectionSummaryResponse(Hex(c.ProtocolId), c.Name, c.MaxSupply,
             MetadataMode(c.MetadataMode), c.MetadataMode == 0 ? "open" : c.Revealed ? "revealed" : "unrevealed",
             Atomic(c.PrimaryPrice), c.SaleStartUtc.ToUniversalTime(), c.RoyaltyBps,
-            new CollectionCreationResponse(Hex(c.ProtocolId), c.Height, Hex(c.Hash), c.Position, c.Timestamp.ToUniversalTime()))).ToArray();
+            new CollectionCreationResponse(Hex(c.ProtocolId), c.Height, Hex(c.Hash), c.Position, c.Timestamp.ToUniversalTime()),
+            c.PreparedCount, c.MintedCount, Atomic(c.PrimaryVolume))).ToArray();
         await snapshot.CommitAsync(cancellationToken);
         return new CollectionListResponse(options.Value.Network, options.Value.XtopNetwork, tip, page, pageSize, total, items);
     }
@@ -59,10 +64,17 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateS
         var current = state.Control;
         var lastChange = state.LastChange;
         var currentTransaction = lastChange?.Message.Transaction ?? transaction;
+        var feeBps = configurations.FindPrimaryFee(collection.Network, collection.ConfigHash, block.Height);
+        var fee = feeBps == null ? (decimal?)null : decimal.Floor(collection.PrimaryPrice * feeBps.Value / 10000);
+        var prepared = await db.CollectionOutputs.LongCountAsync(o => o.CollectionId == collection.Id && o.Kind == CollectionOutputKind.Item &&
+            o.Split == null && o.Purchase == null && o.PurchaseOrigin == null, cancellationToken);
+        var minted = await db.PrimaryPurchaseItems.LongCountAsync(i => i.CollectionId == collection.Id, cancellationToken);
+        var volume = await db.PrimaryPurchases.Where(p => p.CollectionId == collection.Id).SumAsync(p => (decimal?)p.CreatorAmount, cancellationToken) ?? 0;
         var result = new CollectionDetailsResponse(Hex(collection.ProtocolId), options.Value.Network, collection.Network, tip,
             collection.CreationMessage.Version, Hex(collection.ConfigHash), collection.Name, collection.MaxSupply,
             MetadataMode(collection.MetadataMode), state.Metadata.Status, collection.ManagerPermissions,
-            new PrimarySaleTermsResponse(Atomic(collection.PrimaryPrice), collection.SaleStartUtc.ToUniversalTime(), Payout(collection.PrimaryPayout)),
+            new PrimarySaleTermsResponse(Atomic(collection.PrimaryPrice), collection.SaleStartUtc.ToUniversalTime(), Payout(collection.PrimaryPayout),
+                feeBps, fee == null ? null : Atomic(fee.Value), fee == null ? null : Atomic(collection.PrimaryPrice + fee.Value)),
             new RoyaltyTermsResponse(collection.RoyaltyBps, Payout(collection.RoyaltyPayout)),
             new CollectionCreationResponse(Hex(transaction.Hash), block.Height, Hex(block.Hash), transaction.Position, block.Timestamp.ToUniversalTime()),
             Reference(collection.TermsAttachment), Reference(collection.LocationsAttachment),
@@ -73,7 +85,7 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateS
             }, location.Uri)).ToArray(),
             collection.Outputs.OrderBy(o => o.Kind).Select(output => new CreationOutputResponse(output.Kind switch
             {
-                CollectionOutputKind.Control => "control", CollectionOutputKind.Issuance => "issuance", CollectionOutputKind.Nft => "nft",
+                CollectionOutputKind.Control => "control", CollectionOutputKind.Issuance => "issuance", CollectionOutputKind.Item => "item",
                 _ => throw new InvalidDataException("invalid stored output kind")
             }, output.OutputIndex, Hex(output.PublicKey), Hex(output.KeyImage), Hex(output.OwnerKey), Atomic(output.NominalAmount),
                 output.RangeStart, output.RangeEnd)).ToArray(),
@@ -85,7 +97,8 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateS
                 _ => throw new InvalidDataException("invalid stored collection operation")
             }, new CollectionCreationResponse(Hex(currentTransaction.Hash), currentTransaction.Block.Height,
                 Hex(currentTransaction.Block.Hash), currentTransaction.Position, currentTransaction.Block.Timestamp.ToUniversalTime()),
-                lastChange.LocationsAttachment == null ? null : Reference(lastChange.LocationsAttachment)));
+                lastChange.LocationsAttachment == null ? null : Reference(lastChange.LocationsAttachment)),
+            prepared, minted, Atomic(volume));
         await snapshot.CommitAsync(cancellationToken);
         return result;
     }

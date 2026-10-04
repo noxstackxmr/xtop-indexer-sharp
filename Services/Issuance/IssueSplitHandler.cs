@@ -53,7 +53,8 @@ public sealed class IssueSplitHandler(IndexerDbContext db, ProtocolConfiguration
             db.CollectionOutputs.Add(new CollectionOutput
             {
                 Collection = parent.Collection, SourceMessage = message, Network = block.Network,
-                Kind = child.Kind == 1 ? CollectionOutputKind.Nft : CollectionOutputKind.Issuance,
+                Kind = child.Kind == 1 ? CollectionOutputKind.Item : CollectionOutputKind.Issuance,
+                ItemId = child.Kind == 1 ? Protocol.Items.ItemIdentity.Derive(parent.Collection.ProtocolId, child.FirstSerial) : null,
                 OutputIndex = binding.OutputIndex, PublicKey = native.Outputs[binding.OutputIndex].Key,
                 KeyImage = binding.KeyImage, OwnerKey = binding.OwnerKey, NominalAmount = binding.NominalAmount,
                 RangeStart = child.FirstSerial, RangeEnd = (long)child.FirstSerial + child.Count

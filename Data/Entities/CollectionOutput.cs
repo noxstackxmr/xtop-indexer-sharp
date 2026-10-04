@@ -4,7 +4,7 @@ public enum CollectionOutputKind : byte
 {
     Control,
     Issuance,
-    Nft
+    Item
 }
 
 public sealed class CollectionOutput
@@ -14,6 +14,7 @@ public sealed class CollectionOutput
     public long SourceMessageId { get; set; }
     public byte Network { get; set; }
     public CollectionOutputKind Kind { get; set; }
+    public byte[]? ItemId { get; set; }
     public byte OutputIndex { get; set; }
     public required byte[] PublicKey { get; set; }
     public required byte[] KeyImage { get; set; }

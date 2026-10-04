@@ -57,12 +57,13 @@ public sealed class CollectionCreateHandler(IndexerDbContext db, CollectionTerms
         CollectionOutput Output(NewBinding binding, CollectionOutputKind kind) => new()
         {
             Collection = collection, SourceMessage = message, Network = block.Network, Kind = kind, OutputIndex = binding.OutputIndex,
+            ItemId = kind == CollectionOutputKind.Item ? Protocol.Items.ItemIdentity.Derive(collection.ProtocolId, 0) : null,
             PublicKey = native.Outputs[binding.OutputIndex].Key, KeyImage = binding.KeyImage, OwnerKey = binding.OwnerKey,
             NominalAmount = binding.NominalAmount, RangeStart = kind == CollectionOutputKind.Control ? null : 0,
             RangeEnd = kind == CollectionOutputKind.Control ? null : terms.MaxSupply
         };
         collection.Outputs.Add(Output(create.Control, CollectionOutputKind.Control));
-        collection.Outputs.Add(Output(create.IssuanceRoot, create.IssuanceRootKind == 0 ? CollectionOutputKind.Issuance : CollectionOutputKind.Nft));
+        collection.Outputs.Add(Output(create.IssuanceRoot, create.IssuanceRootKind == 0 ? CollectionOutputKind.Issuance : CollectionOutputKind.Item));
         db.Collections.Add(collection);
     }
 }

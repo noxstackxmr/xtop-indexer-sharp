@@ -34,9 +34,11 @@ public sealed class ProtocolConfigurationRegistry
     }
 
     public ushort ResolvePrimaryFee(byte network, byte[] hash, long height)
+        => FindPrimaryFee(network, hash, height) ?? throw new NotSupportedException("primary purchases require configuration V2");
+
+    public ushort? FindPrimaryFee(byte network, byte[] hash, long height)
     {
         _ = Resolve(network, hash, height);
-        return configurations[Convert.ToHexString(hash)].PrimaryFeeBps
-            ?? throw new NotSupportedException("primary purchases require configuration V2");
+        return configurations[Convert.ToHexString(hash)].PrimaryFeeBps;
     }
 }
