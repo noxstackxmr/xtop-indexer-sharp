@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 
 namespace IndexerCore.Services.Collections;
 
-public sealed class CollectionQueryService(IndexerDbContext db, CollectionTermsService termsService,
+public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateService states,
     IOptions<MoneroOptions> options)
 {
     public async Task<CollectionListResponse> ListAsync(int page, int pageSize, CancellationToken cancellationToken)
@@ -28,13 +28,16 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionTermsS
             .Select(c => new
             {
                 c.ProtocolId, c.Name, c.MaxSupply, c.MetadataMode, c.PrimaryPrice, c.SaleStartUtc, c.RoyaltyBps,
+                Revealed = c.Changes.OrderByDescending(change => change.Message.Transaction.Block.Height)
+                    .ThenByDescending(change => change.Message.Transaction.Position).Select(change => change.Revealed).FirstOrDefault(),
                 Height = c.CreationMessage.Transaction.Block.Height,
                 Hash = c.CreationMessage.Transaction.Block.Hash,
                 c.CreationMessage.Transaction.Position,
                 c.CreationMessage.Transaction.Block.Timestamp
             }).ToListAsync(cancellationToken);
         var items = rows.Select(c => new CollectionSummaryResponse(Hex(c.ProtocolId), c.Name, c.MaxSupply,
-            MetadataMode(c.MetadataMode), Atomic(c.PrimaryPrice), c.SaleStartUtc.ToUniversalTime(), c.RoyaltyBps,
+            MetadataMode(c.MetadataMode), c.MetadataMode == 0 ? "open" : c.Revealed ? "revealed" : "unrevealed",
+            Atomic(c.PrimaryPrice), c.SaleStartUtc.ToUniversalTime(), c.RoyaltyBps,
             new CollectionCreationResponse(Hex(c.ProtocolId), c.Height, Hex(c.Hash), c.Position, c.Timestamp.ToUniversalTime()))).ToArray();
         await snapshot.CommitAsync(cancellationToken);
         return new CollectionListResponse(options.Value.Network, options.Value.XtopNetwork, tip, page, pageSize, total, items);
@@ -51,19 +54,18 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionTermsS
         if (collection == null) return null;
         var transaction = collection.CreationMessage.Transaction;
         var block = transaction.Block;
-        var resolved = await termsService.ReadBeforeAsync(collection.TermsAttachment, block.Height, transaction.Position,
-            collection.ConfigHash, cancellationToken)
-            ?? throw new InvalidDataException("stored collection dependencies are incomplete");
-        if (resolved.LocationsAttachment.Id != collection.LocationsAttachmentId)
-            throw new InvalidDataException("stored collection locations do not match its terms");
+        var state = await states.ReadBeforeAsync(collection, long.MaxValue, int.MaxValue, cancellationToken);
+        var current = state.Control;
+        var lastChange = state.LastChange;
+        var currentTransaction = lastChange?.Message.Transaction ?? transaction;
         var result = new CollectionDetailsResponse(Hex(collection.ProtocolId), options.Value.Network, collection.Network, tip,
             collection.CreationMessage.Version, Hex(collection.ConfigHash), collection.Name, collection.MaxSupply,
-            MetadataMode(collection.MetadataMode), collection.ManagerPermissions,
+            MetadataMode(collection.MetadataMode), state.Metadata.Status, collection.ManagerPermissions,
             new PrimarySaleTermsResponse(Atomic(collection.PrimaryPrice), collection.SaleStartUtc.ToUniversalTime(), Payout(collection.PrimaryPayout)),
             new RoyaltyTermsResponse(collection.RoyaltyBps, Payout(collection.RoyaltyPayout)),
             new CollectionCreationResponse(Hex(transaction.Hash), block.Height, Hex(block.Hash), transaction.Position, block.Timestamp.ToUniversalTime()),
             Reference(collection.TermsAttachment), Reference(collection.LocationsAttachment),
-            resolved.Locations.Select(location => new MediaLocationResponse(location.Role, location.Role switch
+            state.Metadata.Locations.Select(location => new MediaLocationResponse(location.Role, location.Role switch
             {
                 1 => "collection_metadata", 2 => "items_metadata", 3 => "placeholder",
                 _ => throw new InvalidDataException("invalid stored location role")
@@ -73,7 +75,16 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionTermsS
                 CollectionOutputKind.Control => "control", CollectionOutputKind.Issuance => "issuance", CollectionOutputKind.Nft => "nft",
                 _ => throw new InvalidDataException("invalid stored output kind")
             }, output.OutputIndex, Hex(output.PublicKey), Hex(output.KeyImage), Hex(output.OwnerKey), Atomic(output.NominalAmount),
-                output.RangeStart, output.RangeEnd)).ToArray());
+                output.RangeStart, output.RangeEnd)).ToArray(),
+            new CurrentControlResponse(Hex(currentTransaction.Hash), current.Binding.OutputIndex, Hex(current.PublicKey),
+                Hex(current.Binding.KeyImage), Hex(current.Binding.OwnerKey), Atomic(current.Binding.NominalAmount)),
+            lastChange == null ? null : new CollectionChangeResponse(lastChange.Operation switch
+            {
+                0x0D => "reveal", 0x0E => "collection_update", 0x0F => "control_transfer",
+                _ => throw new InvalidDataException("invalid stored collection operation")
+            }, new CollectionCreationResponse(Hex(currentTransaction.Hash), currentTransaction.Block.Height,
+                Hex(currentTransaction.Block.Hash), currentTransaction.Position, currentTransaction.Block.Timestamp.ToUniversalTime()),
+                lastChange.LocationsAttachment == null ? null : Reference(lastChange.LocationsAttachment)));
         await snapshot.CommitAsync(cancellationToken);
         return result;
     }

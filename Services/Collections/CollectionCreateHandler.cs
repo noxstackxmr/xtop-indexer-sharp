@@ -3,12 +3,13 @@ using IndexerCore.Protocol.Collections;
 using IndexerCore.Data;
 using IndexerCore.Data.Entities;
 using IndexerCore.Monero;
+using IndexerCore.Services.Indexing;
 using Microsoft.EntityFrameworkCore;
 
 namespace IndexerCore.Services.Collections;
 
 public sealed class CollectionCreateHandler(IndexerDbContext db, CollectionTermsService termsService,
-    ProtocolConfigurationRegistry configurations, MoneroRpcClient rpc)
+    ProtocolConfigurationRegistry configurations, NativeTransactionReader transactions)
 {
     public async Task HandleAsync(Message message, XtopMessage envelope, CancellationToken cancellationToken)
     {
@@ -30,28 +31,15 @@ public sealed class CollectionCreateHandler(IndexerDbContext db, CollectionTerms
                      terms.RoyaltyPayout.PublicSpendKey, terms.RoyaltyPayout.PublicViewKey })
             MoneroProofCrypto.RequirePoint(key);
 
-        if (transaction.NativeData == null)
-        {
-            var remote = await rpc.GetBlockAsync((ulong)block.Height, cancellationToken);
-            var id = Convert.ToHexStringLower(transaction.Hash);
-            if (!Convert.FromHexString(remote.Hash).AsSpan().SequenceEqual(block.Hash) ||
-                transaction.Position >= remote.TransactionIds.Length || remote.TransactionIds[transaction.Position] != id)
-                throw new InvalidDataException("creation block changed before native data could be read");
-            var nativeTransaction = (await rpc.GetTransactionsAsync(remote with { TransactionIds = [id] }, cancellationToken))[0];
-            if ((await rpc.GetBlockAsync(remote.Height, cancellationToken)).Hash != remote.Hash)
-                throw new InvalidDataException("creation block changed while reading native data");
-            transaction.NativeData = nativeTransaction.NativeData;
-        }
-        var native = MoneroProofTransaction.Parse(transaction.NativeData);
-        if (!native.Message.AsSpan().SequenceEqual(message.Data))
-            throw new InvalidDataException("saved message differs from native transaction");
-        create = CollectionCreateProofs.Verify(transaction.NativeData, policy, reference, terms.MaxSupply);
+        var native = await transactions.ReadAsync(message, cancellationToken);
+        create = CollectionCreateProofs.Verify(transaction.NativeData!, policy, reference, terms.MaxSupply);
 
         if (await db.Collections.AnyAsync(c => c.CreationMessageId == message.TransactionId, cancellationToken)) return;
         if (await db.Collections.AnyAsync(c => c.Network == block.Network && c.ProtocolId == transaction.Hash, cancellationToken))
             throw new FormatException("collection already exists");
         foreach (var binding in new[] { create.Control, create.IssuanceRoot })
-            if (await db.CollectionOutputs.AnyAsync(o => o.Network == block.Network && o.KeyImage == binding.KeyImage, cancellationToken))
+            if (await db.CollectionOutputs.AnyAsync(o => o.Network == block.Network && o.KeyImage == binding.KeyImage, cancellationToken) ||
+                await db.CollectionChanges.AnyAsync(c => c.Network == block.Network && c.KeyImage == binding.KeyImage, cancellationToken))
                 throw new FormatException("output key image is already bound");
 
         var collection = new Collection

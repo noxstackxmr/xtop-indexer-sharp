@@ -9,14 +9,15 @@ using Microsoft.EntityFrameworkCore;
 namespace IndexerCore.Services.Indexing;
 
 public sealed class MessageBatchProcessor(IndexerDbContext db, DataChunkHandler chunks, AttachmentService attachments,
-    CollectionCreateHandler collections)
+    CollectionCreateHandler collections, CollectionControlHandler controls)
 {
     public async Task<int> ProcessAsync(byte network, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var messages = await db.Messages.Include(m => m.Transaction).ThenInclude(t => t.Block)
             .Where(m => (m.Status == MessageStatus.Pending ||
-                         (m.Status == MessageStatus.Parsed && (m.Operation == 0x01 || m.Operation == 0x02))) &&
+                         (m.Status == MessageStatus.Parsed && (m.Operation == 0x01 || m.Operation == 0x02 ||
+                             m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F))) &&
                         m.Transaction.Block.Network == network)
             .OrderBy(m => m.Transaction.Block.Height).ThenBy(m => m.Transaction.Position)
             .Take(100).ToListAsync(cancellationToken);
@@ -35,6 +36,12 @@ public sealed class MessageBatchProcessor(IndexerDbContext db, DataChunkHandler 
                         break;
                     case 0x02:
                         await collections.HandleAsync(message, envelope, cancellationToken);
+                        message.Status = MessageStatus.Valid;
+                        break;
+                    case 0x0D:
+                    case 0x0E:
+                    case 0x0F:
+                        await controls.HandleAsync(message, envelope, cancellationToken);
                         message.Status = MessageStatus.Valid;
                         break;
                     default:

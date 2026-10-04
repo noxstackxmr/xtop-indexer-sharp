@@ -12,6 +12,7 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
     public DbSet<DataChunk> DataChunks => Set<DataChunk>();
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<CollectionOutput> CollectionOutputs => Set<CollectionOutput>();
+    public DbSet<CollectionChange> CollectionChanges => Set<CollectionChange>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -91,5 +92,22 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
         output.Property(o => o.NominalAmount).HasPrecision(20, 0);
         output.HasOne(o => o.Collection).WithMany(c => c.Outputs)
             .HasForeignKey(o => o.CollectionId).OnDelete(DeleteBehavior.Cascade);
+
+        var change = modelBuilder.Entity<CollectionChange>();
+        change.HasKey(c => c.MessageId);
+        change.HasIndex(c => c.CollectionId);
+        change.HasIndex(c => new { c.Network, c.PreviousKeyImage }).IsUnique();
+        change.HasIndex(c => new { c.Network, c.KeyImage }).IsUnique();
+        change.Property(c => c.PreviousKeyImage).HasMaxLength(32);
+        change.Property(c => c.PublicKey).HasMaxLength(32);
+        change.Property(c => c.KeyImage).HasMaxLength(32);
+        change.Property(c => c.OwnerKey).HasMaxLength(32);
+        change.Property(c => c.NominalAmount).HasPrecision(20, 0);
+        change.Property(c => c.CollectionMetadataUri).HasMaxLength(1024);
+        change.Property(c => c.ItemsMetadataUri).HasMaxLength(1024);
+        change.Property(c => c.PlaceholderUri).HasMaxLength(1024);
+        change.HasOne(c => c.Message).WithOne().HasForeignKey<CollectionChange>(c => c.MessageId).OnDelete(DeleteBehavior.Cascade);
+        change.HasOne(c => c.Collection).WithMany(c => c.Changes).HasForeignKey(c => c.CollectionId).OnDelete(DeleteBehavior.Cascade);
+        change.HasOne(c => c.LocationsAttachment).WithMany().HasForeignKey(c => c.LocationsAttachmentId).OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -23,4 +23,5 @@ public sealed class Collection
     public Attachment TermsAttachment { get; set; } = null!;
     public Attachment LocationsAttachment { get; set; } = null!;
     public List<CollectionOutput> Outputs { get; set; } = [];
+    public List<CollectionChange> Changes { get; set; } = [];
 }
