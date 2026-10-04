@@ -24,4 +24,6 @@ public sealed class CollectionOutput
     public Collection Collection { get; set; } = null!;
     public Message SourceMessage { get; set; } = null!;
     public IssuanceSplit? Split { get; set; }
+    public PrimaryPurchaseItem? Purchase { get; set; }
+    public PrimaryPurchaseItem? PurchaseOrigin { get; set; }
 }

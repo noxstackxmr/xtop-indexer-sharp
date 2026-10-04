@@ -14,6 +14,8 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
     public DbSet<CollectionOutput> CollectionOutputs => Set<CollectionOutput>();
     public DbSet<CollectionChange> CollectionChanges => Set<CollectionChange>();
     public DbSet<IssuanceSplit> IssuanceSplits => Set<IssuanceSplit>();
+    public DbSet<PrimaryPurchase> PrimaryPurchases => Set<PrimaryPurchase>();
+    public DbSet<PrimaryPurchaseItem> PrimaryPurchaseItems => Set<PrimaryPurchaseItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -116,5 +118,21 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
         change.HasOne(c => c.Message).WithOne().HasForeignKey<CollectionChange>(c => c.MessageId).OnDelete(DeleteBehavior.Cascade);
         change.HasOne(c => c.Collection).WithMany(c => c.Changes).HasForeignKey(c => c.CollectionId).OnDelete(DeleteBehavior.Cascade);
         change.HasOne(c => c.LocationsAttachment).WithMany().HasForeignKey(c => c.LocationsAttachmentId).OnDelete(DeleteBehavior.Restrict);
+
+        var purchase = modelBuilder.Entity<PrimaryPurchase>();
+        purchase.HasKey(p => p.MessageId);
+        purchase.Property(p => p.CreatorAmount).HasPrecision(20, 0);
+        purchase.Property(p => p.PlatformFee).HasPrecision(20, 0);
+        purchase.HasOne(p => p.Message).WithOne().HasForeignKey<PrimaryPurchase>(p => p.MessageId).OnDelete(DeleteBehavior.Cascade);
+        purchase.HasOne(p => p.Collection).WithMany().HasForeignKey(p => p.CollectionId).OnDelete(DeleteBehavior.Cascade);
+
+        var item = modelBuilder.Entity<PrimaryPurchaseItem>();
+        item.HasKey(i => new { i.CollectionId, i.Serial });
+        item.HasIndex(i => new { i.CollectionId, i.ItemId }).IsUnique();
+        item.Property(i => i.ItemId).HasMaxLength(32);
+        item.HasOne(i => i.Purchase).WithMany(p => p.Items).HasForeignKey(i => i.PurchaseMessageId).OnDelete(DeleteBehavior.Cascade);
+        item.HasOne<Collection>().WithMany().HasForeignKey(i => i.CollectionId).OnDelete(DeleteBehavior.Cascade);
+        item.HasOne(i => i.PreviousOutput).WithOne(o => o.Purchase).HasForeignKey<PrimaryPurchaseItem>(i => i.PreviousOutputId).OnDelete(DeleteBehavior.Cascade);
+        item.HasOne(i => i.BuyerOutput).WithOne(o => o.PurchaseOrigin).HasForeignKey<PrimaryPurchaseItem>(i => i.BuyerOutputId).OnDelete(DeleteBehavior.Cascade);
     }
 }

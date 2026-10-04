@@ -11,6 +11,7 @@ using IndexerCore.Services.Attachments;
 using IndexerCore.Services.Collections;
 using IndexerCore.Services.Indexing;
 using IndexerCore.Services.Issuance;
+using IndexerCore.Services.Sales;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
@@ -50,6 +51,7 @@ builder.Services.AddScoped<NativeTransactionReader>();
 builder.Services.AddScoped<CollectionStateService>();
 builder.Services.AddScoped<CollectionControlHandler>();
 builder.Services.AddScoped<IssueSplitHandler>();
+builder.Services.AddScoped<PrimaryPurchaseHandler>();
 builder.Services.AddScoped<IssuanceQueryService>();
 builder.Services.AddScoped<CollectionQueryService>();
 builder.Services.AddScoped<MessageBatchProcessor>();
@@ -77,7 +79,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     await db.Database.MigrateAsync();
     await configurations.ValidateHistoryAsync(db, CancellationToken.None);
     await db.Messages.Where(m => m.Status == MessageStatus.Unsupported && m.Version == XtopMessageReader.CurrentVersion &&
-                                (m.Operation == 1 || m.Operation == 2 || m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F || m.Operation == 0x12))
+                                (m.Operation == 1 || m.Operation == 2 || m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F || m.Operation == 0x12 || m.Operation == 9 || m.Operation == 0x13))
         .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.Status, MessageStatus.Pending).SetProperty(m => m.Error, (string?)null));
     app.Logger.LogInformation("Database is up to date.");
 }

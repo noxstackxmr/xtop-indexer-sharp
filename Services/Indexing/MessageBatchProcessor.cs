@@ -5,12 +5,13 @@ using IndexerCore.Data.Entities;
 using IndexerCore.Services.Attachments;
 using IndexerCore.Services.Collections;
 using IndexerCore.Services.Issuance;
+using IndexerCore.Services.Sales;
 using Microsoft.EntityFrameworkCore;
 
 namespace IndexerCore.Services.Indexing;
 
 public sealed class MessageBatchProcessor(IndexerDbContext db, DataChunkHandler chunks, AttachmentService attachments,
-    CollectionCreateHandler collections, CollectionControlHandler controls, IssueSplitHandler splits)
+    CollectionCreateHandler collections, CollectionControlHandler controls, IssueSplitHandler splits, PrimaryPurchaseHandler purchases)
 {
     public async Task<int> ProcessAsync(byte network, CancellationToken cancellationToken)
     {
@@ -18,7 +19,7 @@ public sealed class MessageBatchProcessor(IndexerDbContext db, DataChunkHandler 
         var messages = await db.Messages.Include(m => m.Transaction).ThenInclude(t => t.Block)
             .Where(m => (m.Status == MessageStatus.Pending ||
                          (m.Status == MessageStatus.Parsed && (m.Operation == 0x01 || m.Operation == 0x02 ||
-                             m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F || m.Operation == 0x12))) &&
+                             m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F || m.Operation == 0x12 || m.Operation == 9 || m.Operation == 0x13))) &&
                         m.Transaction.Block.Network == network)
             .OrderBy(m => m.Transaction.Block.Height).ThenBy(m => m.Transaction.Position)
             .Take(100).ToListAsync(cancellationToken);
@@ -47,6 +48,11 @@ public sealed class MessageBatchProcessor(IndexerDbContext db, DataChunkHandler 
                         break;
                     case 0x12:
                         await splits.HandleAsync(message, envelope, cancellationToken);
+                        message.Status = MessageStatus.Valid;
+                        break;
+                    case 9:
+                    case 0x13:
+                        await purchases.HandleAsync(message, envelope, cancellationToken);
                         message.Status = MessageStatus.Valid;
                         break;
                     default:
