@@ -7,3 +7,6 @@ riderModule.iml
 appsettings.json
 launchsettings*
 /Tests/
+/Monero/Native/build/
+/Monero/Native/tools/
+/Monero/Native/cache/
