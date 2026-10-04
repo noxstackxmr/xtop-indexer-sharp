@@ -20,7 +20,7 @@ public sealed class CollectionControlHandler(IndexerDbContext db, CollectionStat
         var step = CollectionControlReader.Read(envelope);
         var collection = await db.Collections
             .Include(c => c.CreationMessage).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
-            .Include(c => c.TermsAttachment).Include(c => c.Outputs)
+            .Include(c => c.TermsAttachment).Include(c => c.Outputs.Where(o => o.Kind == CollectionOutputKind.Control))
             .SingleOrDefaultAsync(c => c.Network == block.Network && c.ProtocolId == step.CollectionId, cancellationToken)
             ?? throw new FormatException("collection does not exist");
         var creation = collection.CreationMessage.Transaction;

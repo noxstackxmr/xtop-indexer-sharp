@@ -11,6 +11,7 @@ public sealed class CollectionOutput
 {
     public long Id { get; set; }
     public long CollectionId { get; set; }
+    public long SourceMessageId { get; set; }
     public byte Network { get; set; }
     public CollectionOutputKind Kind { get; set; }
     public byte OutputIndex { get; set; }
@@ -21,4 +22,6 @@ public sealed class CollectionOutput
     public long? RangeStart { get; set; }
     public long? RangeEnd { get; set; }
     public Collection Collection { get; set; } = null!;
+    public Message SourceMessage { get; set; } = null!;
+    public IssuanceSplit? Split { get; set; }
 }

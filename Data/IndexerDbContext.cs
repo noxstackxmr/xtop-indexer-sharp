@@ -13,6 +13,7 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
     public DbSet<Collection> Collections => Set<Collection>();
     public DbSet<CollectionOutput> CollectionOutputs => Set<CollectionOutput>();
     public DbSet<CollectionChange> CollectionChanges => Set<CollectionChange>();
+    public DbSet<IssuanceSplit> IssuanceSplits => Set<IssuanceSplit>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -82,8 +83,8 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
             .OnDelete(DeleteBehavior.Restrict);
 
         var output = modelBuilder.Entity<CollectionOutput>();
-        output.HasIndex(o => new { o.CollectionId, o.OutputIndex }).IsUnique();
-        output.HasIndex(o => new { o.CollectionId, o.Kind }).IsUnique();
+        output.HasIndex(o => new { o.SourceMessageId, o.OutputIndex }).IsUnique();
+        output.HasIndex(o => new { o.CollectionId, o.Kind });
         output.HasIndex(o => new { o.Network, o.KeyImage }).IsUnique();
         output.Property(o => o.Kind).HasConversion<byte>();
         output.Property(o => o.PublicKey).HasMaxLength(32);
@@ -92,6 +93,12 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
         output.Property(o => o.NominalAmount).HasPrecision(20, 0);
         output.HasOne(o => o.Collection).WithMany(c => c.Outputs)
             .HasForeignKey(o => o.CollectionId).OnDelete(DeleteBehavior.Cascade);
+        output.HasOne(o => o.SourceMessage).WithMany().HasForeignKey(o => o.SourceMessageId).OnDelete(DeleteBehavior.Cascade);
+
+        var split = modelBuilder.Entity<IssuanceSplit>();
+        split.HasKey(s => s.MessageId);
+        split.HasOne(s => s.Message).WithOne().HasForeignKey<IssuanceSplit>(s => s.MessageId).OnDelete(DeleteBehavior.Cascade);
+        split.HasOne(s => s.ParentOutput).WithOne(o => o.Split).HasForeignKey<IssuanceSplit>(s => s.ParentOutputId).OnDelete(DeleteBehavior.Cascade);
 
         var change = modelBuilder.Entity<CollectionChange>();
         change.HasKey(c => c.MessageId);

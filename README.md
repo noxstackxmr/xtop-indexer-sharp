@@ -57,6 +57,16 @@ REVEAL replaces the placeholder with the items URI once. UPDATE replaces supplie
 
 `CollectionChanges` stores the resulting control and metadata state per operation. The current state is the last change in block/transaction order, or CREATE when no changes remain. Orphaned blocks delete their changes through database foreign keys; replay reconstructs them from saved messages and native transaction bytes. Migration `CollectionControl` creates this history without changing existing collections.
 
+## NFT preparation
+
+`ISSUE_SPLIT` (0x12) uses wire 14 profile `SPLIT_V1` (0x0002). It spends one issuance output and creates two or three independent child outputs. Their ordered ranges must cover the parent exactly. A range of one serial is a `prepared_unsold` NFT; larger ranges remain issuance rights. A collection with supply 1 already has its NFT output in CREATE.
+
+[IssueSplitProofs](Protocol/Issuance/IssueSplitProofs.cs) checks native parent consumption, child ownership proofs, amount openings and the configuration. [IssueSplitHandler](Services/Issuance/IssueSplitHandler.cs) checks provenance, range availability and binding reuse before writing. The parent native signature authorizes the split; no collection manager input is required.
+
+`CollectionOutputs` retains every creation and split binding, including serial ranges and source messages. `IssuanceSplits` records which output each split consumed. [IssuanceQueryService](Services/Issuance/IssuanceQueryService.cs) returns outputs without a consuming split, ordered by serial. This preparation view covers CREATE and ISSUE_SPLIT; SALE, external spends and burn tracking are separate work. No NFT HTTP endpoints are added yet.
+
+Migration `IssuanceSplits` backfills source messages for existing CREATE outputs. On a chain rollback, child outputs and split records are deleted with their messages, making the surviving parent available again. The collection API keeps returning only the original outputs in `creationOutputs`.
+
 ## License
 
 [AGPL-3.0-only](LICENSE). Vendored Monero code retains its [upstream license](Monero/Native/vendor/monero/LICENSE).

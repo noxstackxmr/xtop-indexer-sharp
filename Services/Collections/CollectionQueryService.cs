@@ -49,7 +49,8 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateS
         var tip = await ReadTipAsync(cancellationToken);
         var collection = await db.Collections.AsNoTracking()
             .Include(c => c.CreationMessage).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
-            .Include(c => c.TermsAttachment).Include(c => c.LocationsAttachment).Include(c => c.Outputs)
+            .Include(c => c.TermsAttachment).Include(c => c.LocationsAttachment)
+            .Include(c => c.Outputs.Where(o => o.SourceMessageId == o.Collection.CreationMessageId))
             .SingleOrDefaultAsync(c => c.Network == options.Value.XtopNetwork && c.ProtocolId == id, cancellationToken);
         if (collection == null) return null;
         var transaction = collection.CreationMessage.Transaction;

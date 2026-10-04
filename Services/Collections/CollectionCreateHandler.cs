@@ -56,7 +56,7 @@ public sealed class CollectionCreateHandler(IndexerDbContext db, CollectionTerms
         };
         CollectionOutput Output(NewBinding binding, CollectionOutputKind kind) => new()
         {
-            Collection = collection, Network = block.Network, Kind = kind, OutputIndex = binding.OutputIndex,
+            Collection = collection, SourceMessage = message, Network = block.Network, Kind = kind, OutputIndex = binding.OutputIndex,
             PublicKey = native.Outputs[binding.OutputIndex].Key, KeyImage = binding.KeyImage, OwnerKey = binding.OwnerKey,
             NominalAmount = binding.NominalAmount, RangeStart = kind == CollectionOutputKind.Control ? null : 0,
             RangeEnd = kind == CollectionOutputKind.Control ? null : terms.MaxSupply
