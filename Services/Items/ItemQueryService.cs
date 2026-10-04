@@ -20,22 +20,24 @@ public sealed class ItemQueryService(IndexerDbContext db, CollectionStateService
         ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(pageSize, 100);
         if (collectionId is { Length: not 32 }) throw new ArgumentException("invalid collection id", nameof(collectionId));
-        if (status is not (null or "prepared_unsold" or "sold")) throw new ArgumentException("invalid item status", nameof(status));
+        if (status is not (null or "prepared_unsold" or "sold" or "burned")) throw new ArgumentException("invalid item status", nameof(status));
         var offset = checked((page - 1) * pageSize);
         await using var snapshot = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         var tip = await ReadTipAsync(cancellationToken);
         var query = CurrentOutputs();
         if (collectionId != null) query = query.Where(o => o.Collection.ProtocolId == collectionId);
-        if (status == "prepared_unsold") query = query.Where(o => o.PurchaseOrigin == null);
-        if (status == "sold") query = query.Where(o => o.PurchaseOrigin != null);
+        if (status == "prepared_unsold") query = query.Where(o => o.PurchaseOrigin == null && o.Burn == null);
+        if (status == "sold") query = query.Where(o => o.PurchaseOrigin != null && o.Burn == null);
+        if (status == "burned") query = query.Where(o => o.Burn != null);
         var total = await query.LongCountAsync(cancellationToken);
         var rows = await WithDetails(query).OrderByDescending(o => o.Collection.CreationMessage.Transaction.Block.Height)
             .ThenByDescending(o => o.Collection.CreationMessage.Transaction.Position).ThenBy(o => o.RangeStart)
             .Skip(offset).Take(pageSize).ToArrayAsync(cancellationToken);
         var metadata = await ReadMetadataAsync(rows, cancellationToken);
         var items = rows.Select(o => Response(o, metadata[o.CollectionId])).ToArray();
+        var spendTip = await ReadTipAsync(cancellationToken, true);
         await snapshot.CommitAsync(cancellationToken);
-        return new(options.Value.Network, options.Value.XtopNetwork, tip, page, pageSize, total, items);
+        return new(options.Value.Network, options.Value.XtopNetwork, tip, page, pageSize, total, items, spendTip);
     }
 
     public async Task<ItemDetailsResponse?> GetAsync(byte[] itemId, CancellationToken cancellationToken)
@@ -47,7 +49,7 @@ public sealed class ItemQueryService(IndexerDbContext db, CollectionStateService
         if (output == null) return null;
         var metadata = await ReadMetadataAsync([output], cancellationToken);
         var result = new ItemDetailsResponse(options.Value.Network, options.Value.XtopNetwork, tip,
-            Response(output, metadata[output.CollectionId]));
+            Response(output, metadata[output.CollectionId]), await ReadTipAsync(cancellationToken, true));
         await snapshot.CommitAsync(cancellationToken);
         return result;
     }
@@ -59,7 +61,8 @@ public sealed class ItemQueryService(IndexerDbContext db, CollectionStateService
     private static IQueryable<CollectionOutput> WithDetails(IQueryable<CollectionOutput> query) => query
         .Include(o => o.Collection)
         .Include(o => o.SourceMessage).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
-        .Include(o => o.PurchaseOrigin).ThenInclude(i => i!.Purchase);
+        .Include(o => o.PurchaseOrigin).ThenInclude(i => i!.Purchase)
+        .Include(o => o.Burn).ThenInclude(b => b!.Transaction).ThenInclude(t => t.Block);
 
     private async Task<Dictionary<long, ItemMetadataResponse>> ReadMetadataAsync(CollectionOutput[] outputs, CancellationToken cancellationToken)
     {
@@ -85,18 +88,20 @@ public sealed class ItemQueryService(IndexerDbContext db, CollectionStateService
         var transaction = output.SourceMessage.Transaction;
         var block = transaction.Block;
         var purchase = output.PurchaseOrigin?.Purchase;
+        var burn = output.Burn?.Transaction;
         return new(Hex(output.ItemId!), Hex(output.Collection.ProtocolId), output.RangeStart!.Value,
-            purchase == null ? "prepared_unsold" : "sold", Hex(output.OwnerKey),
+            burn != null ? "burned" : purchase == null ? "prepared_unsold" : "sold", Hex(output.OwnerKey),
             new(Hex(transaction.Hash), output.OutputIndex, Hex(output.PublicKey), Hex(output.KeyImage), Atomic(output.NominalAmount),
                 block.Height, Hex(block.Hash), block.Timestamp.ToUniversalTime()),
             purchase == null ? null : new(Hex(transaction.Hash), block.Height, Hex(block.Hash), block.Timestamp.ToUniversalTime(),
                 Atomic(output.Collection.PrimaryPrice), purchase.FeeBps, Atomic(decimal.Floor(output.Collection.PrimaryPrice * purchase.FeeBps / 10000))),
-            metadata);
+            metadata, burn == null ? null : new("external_spend", Hex(burn.Hash), burn.Block.Height, Hex(burn.Block.Hash),
+                burn.Position, burn.Block.Timestamp.ToUniversalTime()));
     }
 
-    private async Task<ScannedTipResponse?> ReadTipAsync(CancellationToken cancellationToken)
+    private async Task<ScannedTipResponse?> ReadTipAsync(CancellationToken cancellationToken, bool spendsOnly = false)
     {
-        var tip = await db.Blocks.AsNoTracking().Where(b => b.Network == options.Value.XtopNetwork)
+        var tip = await db.Blocks.AsNoTracking().Where(b => b.Network == options.Value.XtopNetwork && (!spendsOnly || b.IsProcessed))
             .OrderByDescending(b => b.Height).Select(b => new { b.Height, b.Hash }).FirstOrDefaultAsync(cancellationToken);
         return tip == null ? null : new(tip.Height, Hex(tip.Hash));
     }

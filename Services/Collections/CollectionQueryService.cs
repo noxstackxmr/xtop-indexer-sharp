@@ -29,7 +29,8 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateS
             {
                 c.ProtocolId, c.Name, c.MaxSupply, c.MetadataMode, c.PrimaryPrice, c.SaleStartUtc, c.RoyaltyBps,
                 PreparedCount = db.CollectionOutputs.LongCount(o => o.CollectionId == c.Id && o.Kind == CollectionOutputKind.Item &&
-                    o.Split == null && o.Purchase == null && o.PurchaseOrigin == null),
+                    o.Split == null && o.Purchase == null && o.PurchaseOrigin == null && o.Burn == null),
+                BurnedCount = db.ItemBurns.LongCount(b => b.Output.CollectionId == c.Id),
                 MintedCount = db.PrimaryPurchaseItems.LongCount(i => i.CollectionId == c.Id),
                 PrimaryVolume = db.PrimaryPurchases.Where(p => p.CollectionId == c.Id).Sum(p => (decimal?)p.CreatorAmount) ?? 0,
                 Revealed = c.Changes.OrderByDescending(change => change.Message.Transaction.Block.Height)
@@ -43,7 +44,7 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateS
             MetadataMode(c.MetadataMode), c.MetadataMode == 0 ? "open" : c.Revealed ? "revealed" : "unrevealed",
             Atomic(c.PrimaryPrice), c.SaleStartUtc.ToUniversalTime(), c.RoyaltyBps,
             new CollectionCreationResponse(Hex(c.ProtocolId), c.Height, Hex(c.Hash), c.Position, c.Timestamp.ToUniversalTime()),
-            c.PreparedCount, c.MintedCount, Atomic(c.PrimaryVolume))).ToArray();
+            c.PreparedCount, c.MintedCount, Atomic(c.PrimaryVolume), c.BurnedCount)).ToArray();
         await snapshot.CommitAsync(cancellationToken);
         return new CollectionListResponse(options.Value.Network, options.Value.XtopNetwork, tip, page, pageSize, total, items);
     }
@@ -67,7 +68,8 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateS
         var feeBps = configurations.FindPrimaryFee(collection.Network, collection.ConfigHash, block.Height);
         var fee = feeBps == null ? (decimal?)null : decimal.Floor(collection.PrimaryPrice * feeBps.Value / 10000);
         var prepared = await db.CollectionOutputs.LongCountAsync(o => o.CollectionId == collection.Id && o.Kind == CollectionOutputKind.Item &&
-            o.Split == null && o.Purchase == null && o.PurchaseOrigin == null, cancellationToken);
+            o.Split == null && o.Purchase == null && o.PurchaseOrigin == null && o.Burn == null, cancellationToken);
+        var burned = await db.ItemBurns.LongCountAsync(b => b.Output.CollectionId == collection.Id, cancellationToken);
         var minted = await db.PrimaryPurchaseItems.LongCountAsync(i => i.CollectionId == collection.Id, cancellationToken);
         var volume = await db.PrimaryPurchases.Where(p => p.CollectionId == collection.Id).SumAsync(p => (decimal?)p.CreatorAmount, cancellationToken) ?? 0;
         var result = new CollectionDetailsResponse(Hex(collection.ProtocolId), options.Value.Network, collection.Network, tip,
@@ -98,7 +100,7 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateS
             }, new CollectionCreationResponse(Hex(currentTransaction.Hash), currentTransaction.Block.Height,
                 Hex(currentTransaction.Block.Hash), currentTransaction.Position, currentTransaction.Block.Timestamp.ToUniversalTime()),
                 lastChange.LocationsAttachment == null ? null : Reference(lastChange.LocationsAttachment)),
-            prepared, minted, Atomic(volume));
+            prepared, minted, Atomic(volume), burned);
         await snapshot.CommitAsync(cancellationToken);
         return result;
     }

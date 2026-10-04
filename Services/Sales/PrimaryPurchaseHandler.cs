@@ -35,12 +35,13 @@ public sealed class PrimaryPurchaseHandler(IndexerDbContext db, ProtocolConfigur
                 throw new FormatException("purchase must not spend a management output");
             var source = await db.CollectionOutputs.Include(o => o.Collection).ThenInclude(c => c.TermsAttachment)
                 .Include(o => o.SourceMessage).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
-                .Include(o => o.Purchase).Include(o => o.PurchaseOrigin)
+                .Include(o => o.Purchase).Include(o => o.PurchaseOrigin).Include(o => o.Burn)
                 .SingleOrDefaultAsync(o => o.Network == block.Network && o.KeyImage == image, cancellationToken);
             if (source == null) continue;
             if (source.Kind != CollectionOutputKind.Item || source.RangeStart == null || source.RangeEnd != source.RangeStart + 1 ||
                 source.RangeStart < 0 || source.RangeEnd > source.Collection.MaxSupply || source.PurchaseOrigin != null ||
-                (source.Purchase != null && source.Purchase.PurchaseMessageId != message.TransactionId))
+                (source.Purchase != null && source.Purchase.PurchaseMessageId != message.TransactionId) ||
+                (source.Burn != null && source.Burn.TransactionId != message.TransactionId))
                 throw new FormatException("primary purchase requires prepared unsold NFT outputs");
             var origin = source.SourceMessage.Transaction;
             if (origin.Block.Height > block.Height || (origin.Block.Height == block.Height && origin.Position >= transaction.Position))
@@ -93,6 +94,7 @@ public sealed class PrimaryPurchaseHandler(IndexerDbContext db, ProtocolConfigur
                 PreviousOutput = source, BuyerOutput = successor });
         }
         db.PrimaryPurchases.Add(purchase);
+        foreach (var source in sources.Where(s => s.Burn != null)) db.ItemBurns.Remove(source.Burn!);
     }
 
     private static NewBinding OriginalBinding(CollectionOutput output)

@@ -27,4 +27,5 @@ public sealed class CollectionOutput
     public IssuanceSplit? Split { get; set; }
     public PrimaryPurchaseItem? Purchase { get; set; }
     public PrimaryPurchaseItem? PurchaseOrigin { get; set; }
+    public ItemBurn? Burn { get; set; }
 }

@@ -10,10 +10,14 @@ public sealed record ItemPurchaseResponse(string TransactionId, long BlockHeight
 
 public sealed record ItemMetadataResponse(string State, string? ItemsMetadataUri, string? PlaceholderUri);
 
-public sealed record ItemResponse(string ItemId, string CollectionId, long Serial, string Status, string OwnerKey,
-    ItemOutputResponse Output, ItemPurchaseResponse? PrimaryPurchase, ItemMetadataResponse Metadata);
+public sealed record ItemBurnResponse(string Reason, string TransactionId, long BlockHeight, string BlockHash,
+    int TransactionPosition, DateTimeOffset BlockTimeUtc);
 
-public sealed record ItemDetailsResponse(string Network, byte NetworkId, ScannedTipResponse? ScannedTip, ItemResponse Item);
+public sealed record ItemResponse(string ItemId, string CollectionId, long Serial, string Status, string OwnerKey,
+    ItemOutputResponse Output, ItemPurchaseResponse? PrimaryPurchase, ItemMetadataResponse Metadata, ItemBurnResponse? Burn);
+
+public sealed record ItemDetailsResponse(string Network, byte NetworkId, ScannedTipResponse? ScannedTip, ItemResponse Item,
+    ScannedTipResponse? SpendCheckedTip);
 
 public sealed record ItemListResponse(string Network, byte NetworkId, ScannedTipResponse? ScannedTip,
-    int Page, int PageSize, long Total, ItemResponse[] Items);
+    int Page, int PageSize, long Total, ItemResponse[] Items, ScannedTipResponse? SpendCheckedTip);

@@ -13,14 +13,16 @@ namespace IndexerCore.Services.Indexing;
 public sealed class MessageBatchProcessor(IndexerDbContext db, DataChunkHandler chunks, AttachmentService attachments,
     CollectionCreateHandler collections, CollectionControlHandler controls, IssueSplitHandler splits, PrimaryPurchaseHandler purchases)
 {
+    public static IQueryable<Message> PendingMessages(IndexerDbContext db, byte network) => db.Messages
+        .Where(m => (m.Status == MessageStatus.Pending ||
+                     (m.Status == MessageStatus.Parsed && (m.Operation == 0x01 || m.Operation == 0x02 ||
+                         m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F || m.Operation == 0x12 || m.Operation == 9 || m.Operation == 0x13))) &&
+                    m.Transaction.Block.Network == network);
+
     public async Task<int> ProcessAsync(byte network, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        var messages = await db.Messages.Include(m => m.Transaction).ThenInclude(t => t.Block)
-            .Where(m => (m.Status == MessageStatus.Pending ||
-                         (m.Status == MessageStatus.Parsed && (m.Operation == 0x01 || m.Operation == 0x02 ||
-                             m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F || m.Operation == 0x12 || m.Operation == 9 || m.Operation == 0x13))) &&
-                        m.Transaction.Block.Network == network)
+        var messages = await PendingMessages(db, network).Include(m => m.Transaction).ThenInclude(t => t.Block)
             .OrderBy(m => m.Transaction.Block.Height).ThenBy(m => m.Transaction.Position)
             .Take(100).ToListAsync(cancellationToken);
         var affected = new HashSet<Attachment>();
@@ -58,6 +60,12 @@ public sealed class MessageBatchProcessor(IndexerDbContext db, DataChunkHandler 
                     default:
                         message.Status = MessageStatus.Parsed;
                         break;
+                }
+                if (message.Status == MessageStatus.Valid && message.Transaction.Block.IsProcessed)
+                {
+                    await db.Blocks.Where(b => b.Network == network && b.Height >= message.Transaction.Block.Height)
+                        .ExecuteUpdateAsync(s => s.SetProperty(b => b.IsProcessed, false), cancellationToken);
+                    message.Transaction.Block.IsProcessed = false;
                 }
                 message.Error = null;
             }

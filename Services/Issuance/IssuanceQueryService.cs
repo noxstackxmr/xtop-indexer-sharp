@@ -13,7 +13,7 @@ public sealed class IssuanceQueryService(IndexerDbContext db)
     {
         var outputs = await db.CollectionOutputs.AsNoTracking()
             .Where(o => o.Network == network && o.Collection.ProtocolId == collectionId &&
-                o.Kind != CollectionOutputKind.Control && o.Split == null && o.Purchase == null && o.PurchaseOrigin == null)
+                o.Kind != CollectionOutputKind.Control && o.Split == null && o.Purchase == null && o.PurchaseOrigin == null && o.Burn == null)
             .OrderBy(o => o.RangeStart)
             .Select(o => new { o.RangeStart, o.RangeEnd, o.Kind, o.SourceMessage.Transaction.Hash, o.OutputIndex,
                 o.PublicKey, o.KeyImage, o.OwnerKey, o.NominalAmount }).ToListAsync(cancellationToken);

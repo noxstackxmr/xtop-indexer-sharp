@@ -57,6 +57,7 @@ builder.Services.AddScoped<IssuanceQueryService>();
 builder.Services.AddScoped<CollectionQueryService>();
 builder.Services.AddScoped<ItemQueryService>();
 builder.Services.AddScoped<ItemIdentityBackfill>();
+builder.Services.AddScoped<ItemSpendProcessor>();
 builder.Services.AddScoped<MessageBatchProcessor>();
 builder.Services.AddHostedService<TransactionScanner>();
 builder.Services.AddHostedService<MessageProcessor>();

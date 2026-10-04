@@ -16,6 +16,7 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
     public DbSet<IssuanceSplit> IssuanceSplits => Set<IssuanceSplit>();
     public DbSet<PrimaryPurchase> PrimaryPurchases => Set<PrimaryPurchase>();
     public DbSet<PrimaryPurchaseItem> PrimaryPurchaseItems => Set<PrimaryPurchaseItem>();
+    public DbSet<ItemBurn> ItemBurns => Set<ItemBurn>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -24,6 +25,7 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
         var block = modelBuilder.Entity<Block>();
         block.HasIndex(b => new { b.Network, b.Height }).IsUnique();
         block.HasIndex(b => new { b.Network, b.Hash }).IsUnique();
+        block.HasIndex(b => new { b.Network, b.IsProcessed, b.Height });
         block.Property(b => b.Hash).HasMaxLength(32);
         block.Property(b => b.PreviousHash).HasMaxLength(32);
 
@@ -136,5 +138,10 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
         item.HasOne<Collection>().WithMany().HasForeignKey(i => i.CollectionId).OnDelete(DeleteBehavior.Cascade);
         item.HasOne(i => i.PreviousOutput).WithOne(o => o.Purchase).HasForeignKey<PrimaryPurchaseItem>(i => i.PreviousOutputId).OnDelete(DeleteBehavior.Cascade);
         item.HasOne(i => i.BuyerOutput).WithOne(o => o.PurchaseOrigin).HasForeignKey<PrimaryPurchaseItem>(i => i.BuyerOutputId).OnDelete(DeleteBehavior.Cascade);
+
+        var burn = modelBuilder.Entity<ItemBurn>();
+        burn.HasKey(b => b.OutputId);
+        burn.HasOne(b => b.Output).WithOne(o => o.Burn).HasForeignKey<ItemBurn>(b => b.OutputId).OnDelete(DeleteBehavior.Cascade);
+        burn.HasOne(b => b.Transaction).WithMany().HasForeignKey(b => b.TransactionId).OnDelete(DeleteBehavior.Cascade);
     }
 }

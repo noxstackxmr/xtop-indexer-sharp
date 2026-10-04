@@ -7,7 +7,7 @@ public sealed record CollectionCreationResponse(string TransactionId, long Block
 
 public sealed record CollectionSummaryResponse(string Id, string Name, long MaxSupply, string MetadataMode,
     string MetadataState, string PrimaryPriceAtomic, DateTimeOffset SaleStartUtc, int RoyaltyBps, CollectionCreationResponse Creation,
-    long PreparedCount, long MintedCount, string PrimaryVolumeAtomic);
+    long PreparedCount, long MintedCount, string PrimaryVolumeAtomic, long BurnedCount);
 
 public sealed record CollectionListResponse(string Network, byte NetworkId, ScannedTipResponse? ScannedTip,
     int Page, int PageSize, long Total, CollectionSummaryResponse[] Items);
@@ -38,4 +38,4 @@ public sealed record CollectionDetailsResponse(string Id, string Network, byte N
     AttachmentReferenceResponse TermsAttachment, AttachmentReferenceResponse LocationsAttachment,
     MediaLocationResponse[] Locations, CreationOutputResponse[] CreationOutputs,
     CurrentControlResponse CurrentControl, CollectionChangeResponse? LastChange,
-    long PreparedCount, long MintedCount, string PrimaryVolumeAtomic);
+    long PreparedCount, long MintedCount, string PrimaryVolumeAtomic, long BurnedCount);
