@@ -1,0 +1,584 @@
+using System;
+using IndexerCore.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+
+#nullable disable
+
+namespace IndexerCore.Data.Migrations
+{
+    [DbContext(typeof(IndexerDbContext))]
+    [Migration("20261004091753_CompactIssueSplitProfile")]
+    partial class CompactIssueSplitProfile
+    {
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "10.0.7")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.Attachment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<byte[]>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("MerkleRoot")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<byte>("Network")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<long>("TotalLength")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte?>("Type")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Network", "Hash", "TotalLength", "MerkleRoot")
+                        .IsUnique();
+
+                    b.ToTable("Attachments");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.Block", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<byte[]>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<long>("Height")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsProcessed")
+                        .HasColumnType("boolean");
+
+                    b.Property<byte>("Network")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte[]>("PreviousHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTimeOffset>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Network", "Hash")
+                        .IsUnique();
+
+                    b.HasIndex("Network", "Height")
+                        .IsUnique();
+
+                    b.ToTable("Blocks");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.Collection", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<byte[]>("ConfigHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<long>("CreationMessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("LocationsAttachmentId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte>("ManagerPermissions")
+                        .HasColumnType("smallint");
+
+                    b.Property<long>("MaxSupply")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte>("MetadataMode")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<byte>("Network")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte[]>("PrimaryPayout")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("bytea");
+
+                    b.Property<decimal>("PrimaryPrice")
+                        .HasPrecision(20)
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<byte[]>("ProtocolId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("RoyaltyBps")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("RoyaltyPayout")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTimeOffset>("SaleStartUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("TermsAttachmentId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreationMessageId")
+                        .IsUnique();
+
+                    b.HasIndex("LocationsAttachmentId");
+
+                    b.HasIndex("TermsAttachmentId");
+
+                    b.HasIndex("Network", "ProtocolId")
+                        .IsUnique();
+
+                    b.ToTable("Collections");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.CollectionChange", b =>
+                {
+                    b.Property<long>("MessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("CollectionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CollectionMetadataUri")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<string>("ItemsMetadataUri")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<byte[]>("KeyImage")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<long?>("LocationsAttachmentId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte>("Network")
+                        .HasColumnType("smallint");
+
+                    b.Property<decimal>("NominalAmount")
+                        .HasPrecision(20)
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<byte>("Operation")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte>("OutputIndex")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte[]>("OwnerKey")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("PlaceholderUri")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<byte[]>("PreviousKeyImage")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("PublicKey")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<bool>("Revealed")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("MessageId");
+
+                    b.HasIndex("CollectionId");
+
+                    b.HasIndex("LocationsAttachmentId");
+
+                    b.HasIndex("Network", "KeyImage")
+                        .IsUnique();
+
+                    b.HasIndex("Network", "PreviousKeyImage")
+                        .IsUnique();
+
+                    b.ToTable("CollectionChanges");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.CollectionOutput", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("CollectionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("KeyImage")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<byte>("Kind")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte>("Network")
+                        .HasColumnType("smallint");
+
+                    b.Property<decimal>("NominalAmount")
+                        .HasPrecision(20)
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<byte>("OutputIndex")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte[]>("OwnerKey")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("PublicKey")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<long?>("RangeEnd")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("RangeStart")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SourceMessageId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CollectionId", "Kind");
+
+                    b.HasIndex("Network", "KeyImage")
+                        .IsUnique();
+
+                    b.HasIndex("SourceMessageId", "OutputIndex")
+                        .IsUnique();
+
+                    b.ToTable("CollectionOutputs");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.DataChunk", b =>
+                {
+                    b.Property<long>("MessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("AttachmentId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("ConfigHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Index")
+                        .HasColumnType("integer");
+
+                    b.HasKey("MessageId");
+
+                    b.HasIndex("AttachmentId", "Count", "Index");
+
+                    b.ToTable("DataChunks");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.IssuanceSplit", b =>
+                {
+                    b.Property<long>("MessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ParentOutputId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("MessageId");
+
+                    b.HasIndex("ParentOutputId")
+                        .IsUnique();
+
+                    b.ToTable("IssuanceSplits");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.Message", b =>
+                {
+                    b.Property<long>("TransactionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
+                    b.Property<byte>("Network")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte>("Operation")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte>("Version")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("TransactionId");
+
+                    b.ToTable("Messages");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.Transaction", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("BlockId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("NativeData")
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Hash");
+
+                    b.HasIndex("BlockId", "Position")
+                        .IsUnique();
+
+                    b.ToTable("Transactions");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.Collection", b =>
+                {
+                    b.HasOne("IndexerCore.Data.Entities.Message", "CreationMessage")
+                        .WithOne()
+                        .HasForeignKey("IndexerCore.Data.Entities.Collection", "CreationMessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("IndexerCore.Data.Entities.Attachment", "LocationsAttachment")
+                        .WithMany()
+                        .HasForeignKey("LocationsAttachmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("IndexerCore.Data.Entities.Attachment", "TermsAttachment")
+                        .WithMany()
+                        .HasForeignKey("TermsAttachmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreationMessage");
+
+                    b.Navigation("LocationsAttachment");
+
+                    b.Navigation("TermsAttachment");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.CollectionChange", b =>
+                {
+                    b.HasOne("IndexerCore.Data.Entities.Collection", "Collection")
+                        .WithMany("Changes")
+                        .HasForeignKey("CollectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("IndexerCore.Data.Entities.Attachment", "LocationsAttachment")
+                        .WithMany()
+                        .HasForeignKey("LocationsAttachmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("IndexerCore.Data.Entities.Message", "Message")
+                        .WithOne()
+                        .HasForeignKey("IndexerCore.Data.Entities.CollectionChange", "MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Collection");
+
+                    b.Navigation("LocationsAttachment");
+
+                    b.Navigation("Message");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.CollectionOutput", b =>
+                {
+                    b.HasOne("IndexerCore.Data.Entities.Collection", "Collection")
+                        .WithMany("Outputs")
+                        .HasForeignKey("CollectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("IndexerCore.Data.Entities.Message", "SourceMessage")
+                        .WithMany()
+                        .HasForeignKey("SourceMessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Collection");
+
+                    b.Navigation("SourceMessage");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.DataChunk", b =>
+                {
+                    b.HasOne("IndexerCore.Data.Entities.Attachment", "Attachment")
+                        .WithMany("Chunks")
+                        .HasForeignKey("AttachmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("IndexerCore.Data.Entities.Message", "Message")
+                        .WithOne()
+                        .HasForeignKey("IndexerCore.Data.Entities.DataChunk", "MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Attachment");
+
+                    b.Navigation("Message");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.IssuanceSplit", b =>
+                {
+                    b.HasOne("IndexerCore.Data.Entities.Message", "Message")
+                        .WithOne()
+                        .HasForeignKey("IndexerCore.Data.Entities.IssuanceSplit", "MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("IndexerCore.Data.Entities.CollectionOutput", "ParentOutput")
+                        .WithOne("Split")
+                        .HasForeignKey("IndexerCore.Data.Entities.IssuanceSplit", "ParentOutputId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Message");
+
+                    b.Navigation("ParentOutput");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.Message", b =>
+                {
+                    b.HasOne("IndexerCore.Data.Entities.Transaction", "Transaction")
+                        .WithOne("Message")
+                        .HasForeignKey("IndexerCore.Data.Entities.Message", "TransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Transaction");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.Transaction", b =>
+                {
+                    b.HasOne("IndexerCore.Data.Entities.Block", "Block")
+                        .WithMany("Transactions")
+                        .HasForeignKey("BlockId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Block");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.Attachment", b =>
+                {
+                    b.Navigation("Chunks");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.Block", b =>
+                {
+                    b.Navigation("Transactions");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.Collection", b =>
+                {
+                    b.Navigation("Changes");
+
+                    b.Navigation("Outputs");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.CollectionOutput", b =>
+                {
+                    b.Navigation("Split");
+                });
+
+            modelBuilder.Entity("IndexerCore.Data.Entities.Transaction", b =>
+                {
+                    b.Navigation("Message");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}

@@ -14,6 +14,8 @@ public static class IssueSplitProofs
     {
         var tx = MoneroProofTransaction.Parse(nativeBlob);
         var message = XtopMessageReader.ReadMessage(tx.Message, policy.Network);
+        if (IssueSplitReader.ReadProfile(message) == CompactIssueSplitProofs.Profile)
+            return CompactIssueSplitProofs.Verify(tx, policy, parent);
         var split = Validate(tx, message, policy, parent);
         var context = Context(tx, message, policy, parent);
         foreach (var child in split.Children)

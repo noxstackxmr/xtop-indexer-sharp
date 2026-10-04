@@ -9,6 +9,29 @@ public sealed record IssueSplit(byte[] CollectionId, byte[] ParentKeyImage, Issu
 
 public static class IssueSplitReader
 {
+    public static ushort ReadProfile(XtopMessage message)
+    {
+        if (message.Operation != 0x12) throw new FormatException("expected ISSUE_SPLIT");
+        if (message.Witnesses.Length == 0) throw new FormatException("split witnesses are required");
+        var profile = message.Witnesses[0].Profile;
+        if (profile != IssueSplitProofs.Profile && profile != CompactIssueSplitProofs.Profile)
+            throw new NotSupportedException("split proof profile is not supported");
+        if (message.Witnesses.Any(w => w.Profile != profile))
+            throw new FormatException("mixed split proof profiles");
+        return profile;
+    }
+
+    public static (byte[] CollectionId, byte[] ParentKeyImage) ReadReference(XtopMessage message)
+    {
+        if (ReadProfile(message) == CompactIssueSplitProofs.Profile)
+        {
+            var compact = CompactIssueSplitProofs.Read(message);
+            return (compact.CollectionId, compact.ParentKeyImage);
+        }
+        var split = Read(message);
+        return (split.CollectionId, split.ParentKeyImage);
+    }
+
     public static IssueSplit Read(XtopMessage message)
     {
         if (message.Operation != 0x12) throw new FormatException("expected ISSUE_SPLIT");

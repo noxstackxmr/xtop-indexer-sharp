@@ -15,12 +15,12 @@ public sealed class IssueSplitHandler(IndexerDbContext db, ProtocolConfiguration
         var transaction = message.Transaction;
         var block = transaction.Block;
         var policy = configurations.Resolve(block.Network, envelope.ConfigHash, block.Height);
-        var split = IssueSplitReader.Read(envelope);
+        var reference = IssueSplitReader.ReadReference(envelope);
         var parent = await db.CollectionOutputs.Include(o => o.Collection).Include(o => o.Split)
             .Include(o => o.SourceMessage).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
-            .SingleOrDefaultAsync(o => o.Network == block.Network && o.KeyImage == split.ParentKeyImage, cancellationToken)
+            .SingleOrDefaultAsync(o => o.Network == block.Network && o.KeyImage == reference.ParentKeyImage, cancellationToken)
             ?? throw new FormatException("issuance parent does not exist");
-        if (!parent.Collection.ProtocolId.AsSpan().SequenceEqual(split.CollectionId) ||
+        if (!parent.Collection.ProtocolId.AsSpan().SequenceEqual(reference.CollectionId) ||
             !parent.Collection.ConfigHash.AsSpan().SequenceEqual(policy.ConfigHash))
             throw new FormatException("issuance collection or configuration mismatch");
         if (parent.Kind != CollectionOutputKind.Issuance || parent.RangeStart == null || parent.RangeEnd == null ||
@@ -35,7 +35,7 @@ public sealed class IssueSplitHandler(IndexerDbContext db, ProtocolConfiguration
         var state = new IssuanceState(parent.Collection.ProtocolId, checked((uint)parent.RangeStart),
             checked((uint)(parent.RangeEnd - parent.RangeStart)),
             new NewBinding(parent.OutputIndex, parent.KeyImage, parent.OwnerKey, checked((ulong)parent.NominalAmount), 0, 1), parent.PublicKey);
-        split = IssueSplitProofs.Verify(transaction.NativeData!, policy, state);
+        var split = IssueSplitProofs.Verify(transaction.NativeData!, policy, state);
         if (await db.IssuanceSplits.AnyAsync(s => s.MessageId == message.TransactionId, cancellationToken)) return;
         foreach (var child in split.Children)
             if (await db.CollectionOutputs.AnyAsync(o => o.Network == block.Network && o.KeyImage == child.Binding.KeyImage, cancellationToken) ||
