@@ -1,10 +1,11 @@
 using IndexerCore.Data;
 using IndexerCore.Data.Entities;
 using IndexerCore.Monero;
+using IndexerCore.Services.Attachments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
-namespace IndexerCore.Services;
+namespace IndexerCore.Services.Indexing;
 
 public sealed class ChainReorganization(
     IndexerDbContext db,

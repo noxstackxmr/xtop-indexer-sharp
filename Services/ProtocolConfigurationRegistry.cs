@@ -1,3 +1,4 @@
+using IndexerCore.Protocol.Collections;
 using IndexerCore.Data;
 using IndexerCore.Protocol;
 using Microsoft.EntityFrameworkCore;

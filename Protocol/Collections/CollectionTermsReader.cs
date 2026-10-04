@@ -1,9 +1,10 @@
+using IndexerCore.Protocol.Messages;
+using IndexerCore.Protocol.Attachments;
 using System.Text;
 
-namespace IndexerCore.Protocol;
+namespace IndexerCore.Protocol.Collections;
 
 public sealed record StandardAddress(byte[] PublicSpendKey, byte[] PublicViewKey);
-public sealed record ChunkReference(byte[] Hash, uint TotalLength, byte[] MerkleRoot);
 public sealed record CollectionTerms(string Name, uint MaxSupply, byte MetadataMode, StandardAddress PrimaryPayout,
     StandardAddress RoyaltyPayout, ushort RoyaltyBps, byte ManagerPermissions, ChunkReference InitialLocations,
     ulong PrimaryPrice, ulong SaleStartUtc);

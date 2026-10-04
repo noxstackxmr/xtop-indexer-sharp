@@ -1,7 +1,7 @@
 using System.Numerics;
 using Org.BouncyCastle.Crypto.Digests;
 
-namespace IndexerCore.Protocol;
+namespace IndexerCore.Protocol.Attachments;
 
 public sealed class AttachmentAssembly
 {

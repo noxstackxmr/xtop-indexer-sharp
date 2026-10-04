@@ -1,9 +1,10 @@
+using IndexerCore.Protocol.Messages;
+using IndexerCore.Protocol.Attachments;
 using IndexerCore.Data;
 using IndexerCore.Data.Entities;
-using IndexerCore.Protocol;
 using Microsoft.EntityFrameworkCore;
 
-namespace IndexerCore.Services;
+namespace IndexerCore.Services.Attachments;
 
 public sealed class DataChunkHandler(IndexerDbContext db)
 {

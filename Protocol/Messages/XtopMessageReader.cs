@@ -1,6 +1,8 @@
+using IndexerCore.Protocol.Collections;
+using IndexerCore.Protocol.Attachments;
 using System.Buffers.Binary;
 
-namespace IndexerCore.Protocol;
+namespace IndexerCore.Protocol.Messages;
 
 public sealed record XtopWitness(byte Kind, ushort Profile, byte[] Proof);
 public sealed record XtopMessage(byte Version, byte[] ConfigHash, byte Operation, byte[] Payload, XtopWitness[] Witnesses);

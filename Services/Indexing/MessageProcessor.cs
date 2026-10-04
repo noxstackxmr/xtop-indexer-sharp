@@ -1,7 +1,7 @@
 using IndexerCore.Monero;
 using Microsoft.Extensions.Options;
 
-namespace IndexerCore.Services;
+namespace IndexerCore.Services.Indexing;
 
 public sealed class MessageProcessor(IServiceScopeFactory scopeFactory, SemaphoreSlim stateLock,
     IOptions<MoneroOptions> options, ILogger<MessageProcessor> logger) : BackgroundService

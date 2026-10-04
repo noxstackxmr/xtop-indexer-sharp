@@ -1,7 +1,10 @@
+using IndexerCore.Protocol.Messages;
 using System.Buffers.Binary;
 using System.Numerics;
 
-namespace IndexerCore.Protocol;
+namespace IndexerCore.Protocol.Attachments;
+
+public sealed record ChunkReference(byte[] Hash, uint TotalLength, byte[] MerkleRoot);
 
 public sealed record ParsedDataChunk(
     byte[] Hash, uint TotalLength, byte[] MerkleRoot, ushort Index, ushort Count,

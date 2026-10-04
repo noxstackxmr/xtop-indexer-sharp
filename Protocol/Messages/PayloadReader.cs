@@ -1,6 +1,7 @@
+using IndexerCore.Protocol.Attachments;
 using System.Buffers.Binary;
 
-namespace IndexerCore.Protocol;
+namespace IndexerCore.Protocol.Messages;
 
 internal ref struct PayloadReader(ReadOnlySpan<byte> data)
 {

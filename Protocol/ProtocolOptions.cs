@@ -1,3 +1,5 @@
+using IndexerCore.Protocol.Messages;
+using IndexerCore.Protocol.Collections;
 using IndexerCore.Monero;
 
 namespace IndexerCore.Protocol;

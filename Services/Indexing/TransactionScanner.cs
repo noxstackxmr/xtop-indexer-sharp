@@ -1,11 +1,11 @@
+using IndexerCore.Protocol.Messages;
 using IndexerCore.Data;
 using IndexerCore.Data.Entities;
 using IndexerCore.Monero;
-using IndexerCore.Protocol;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
-namespace IndexerCore.Services;
+namespace IndexerCore.Services.Indexing;
 
 public sealed class TransactionScanner(
     MoneroRpcClient rpc,

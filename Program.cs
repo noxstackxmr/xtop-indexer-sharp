@@ -1,3 +1,4 @@
+using IndexerCore.Protocol.Messages;
 using IndexerCore.Data;
 using IndexerCore.Monero;
 using IndexerCore.Services;
@@ -5,9 +6,24 @@ using IndexerCore.Protocol;
 using IndexerCore.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.RateLimiting;
+using IndexerCore.Services.Attachments;
+using IndexerCore.Services.Collections;
+using IndexerCore.Services.Indexing;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddConcurrencyLimiter("collections", limiter =>
+    {
+        limiter.PermitLimit = 8;
+        limiter.QueueLimit = 0;
+    });
+});
 builder.Services.AddOptions<MoneroOptions>()
     .BindConfiguration(MoneroOptions.SectionName)
     .ValidateDataAnnotations()
@@ -29,6 +45,7 @@ builder.Services.AddScoped<DataChunkHandler>();
 builder.Services.AddScoped<AttachmentService>();
 builder.Services.AddScoped<CollectionTermsService>();
 builder.Services.AddScoped<CollectionCreateHandler>();
+builder.Services.AddScoped<CollectionQueryService>();
 builder.Services.AddScoped<MessageBatchProcessor>();
 builder.Services.AddHostedService<TransactionScanner>();
 builder.Services.AddHostedService<MessageProcessor>();
@@ -64,5 +81,13 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    await next(context);
+});
+app.UseRateLimiter();
+app.MapControllers();
 app.Run();

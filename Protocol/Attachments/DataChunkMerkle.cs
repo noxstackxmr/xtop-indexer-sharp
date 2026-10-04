@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.Numerics;
 using Org.BouncyCastle.Crypto.Digests;
 
-namespace IndexerCore.Protocol;
+namespace IndexerCore.Protocol.Attachments;
 
 public static class DataChunkMerkle
 {

@@ -32,6 +32,19 @@ dotnet build
 
 Native binaries are built in `Monero/Native/build`. Build and publish copy the matching binary beside the application and the Monero license to `licenses/monero/LICENSE`. Rebuild the native library after changing its sources. Binaries and compiler caches are excluded from Git.
 
+## API
+
+| GET | Response |
+|---|---|
+| `/api/collections?page=1&pageSize=20` | Collection summaries, newest first |
+| `/api/collections/{id}` | Terms, metadata locations, creation transaction and creation outputs |
+
+`id` is the 64-character hex CREATE transaction ID. `page` starts at 1; `pageSize` is 1–100. Invalid parameters return 400; a missing collection returns 404. At most eight collection requests run concurrently; excess requests return 429.
+
+Amounts use decimal strings in Monero atomic units (1 XMR = 10^12). Keys and hashes use lowercase hex. Times use UTC. `scannedTip` identifies the scanned chain snapshot, not completion of all message processing. Responses are read from a consistent database snapshot and are not cached.
+
+Metadata URLs are returned as stored; external JSON and images are not fetched. `creationOutputs` describes the CREATE outputs, not their current spend status. These methods currently expose creation data; SALE and REVEAL processing will be added separately.
+
 ## License
 
 [AGPL-3.0-only](LICENSE). Vendored Monero code retains its [upstream license](Monero/Native/vendor/monero/LICENSE).

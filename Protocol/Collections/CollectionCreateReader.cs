@@ -1,4 +1,6 @@
-namespace IndexerCore.Protocol;
+using IndexerCore.Protocol.Messages;
+using IndexerCore.Protocol.Attachments;
+namespace IndexerCore.Protocol.Collections;
 
 public sealed record NewBinding(byte OutputIndex, byte[] KeyImage, byte[] OwnerKey, ulong NominalAmount,
     byte OwnershipWitness, byte AmountWitness);

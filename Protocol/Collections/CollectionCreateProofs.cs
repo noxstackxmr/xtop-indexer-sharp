@@ -1,7 +1,9 @@
+using IndexerCore.Protocol.Messages;
+using IndexerCore.Protocol.Attachments;
 using System.Security.Cryptography;
 using IndexerCore.Monero;
 
-namespace IndexerCore.Protocol;
+namespace IndexerCore.Protocol.Collections;
 
 public sealed record CollectionCreatePolicy(byte Network, byte[] ConfigHash, byte[] FeeSpendKey, byte[] FeeViewKey,
     ulong CreationFee, ulong ControlAmount, ulong NftAmount);

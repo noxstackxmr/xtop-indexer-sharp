@@ -1,9 +1,11 @@
+using IndexerCore.Protocol.Collections;
+using IndexerCore.Protocol.Attachments;
 using IndexerCore.Data;
 using IndexerCore.Data.Entities;
-using IndexerCore.Protocol;
+using IndexerCore.Services.Attachments;
 using Microsoft.EntityFrameworkCore;
 
-namespace IndexerCore.Services;
+namespace IndexerCore.Services.Collections;
 
 public sealed record ResolvedCollectionTerms(CollectionTerms Terms, Attachment LocationsAttachment, MediaLocation[] Locations);
 

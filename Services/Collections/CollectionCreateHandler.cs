@@ -1,10 +1,11 @@
+using IndexerCore.Protocol.Messages;
+using IndexerCore.Protocol.Collections;
 using IndexerCore.Data;
 using IndexerCore.Data.Entities;
 using IndexerCore.Monero;
-using IndexerCore.Protocol;
 using Microsoft.EntityFrameworkCore;
 
-namespace IndexerCore.Services;
+namespace IndexerCore.Services.Collections;
 
 public sealed class CollectionCreateHandler(IndexerDbContext db, CollectionTermsService termsService,
     ProtocolConfigurationRegistry configurations, MoneroRpcClient rpc)

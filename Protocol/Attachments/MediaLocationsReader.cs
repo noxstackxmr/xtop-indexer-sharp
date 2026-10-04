@@ -1,6 +1,7 @@
+using IndexerCore.Protocol.Messages;
 using System.Text;
 
-namespace IndexerCore.Protocol;
+namespace IndexerCore.Protocol.Attachments;
 
 public sealed record MediaLocation(byte Role, string Uri);
 

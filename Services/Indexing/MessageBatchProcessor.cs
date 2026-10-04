@@ -1,10 +1,12 @@
+using IndexerCore.Protocol.Messages;
 using System.Security.Cryptography;
 using IndexerCore.Data;
 using IndexerCore.Data.Entities;
-using IndexerCore.Protocol;
+using IndexerCore.Services.Attachments;
+using IndexerCore.Services.Collections;
 using Microsoft.EntityFrameworkCore;
 
-namespace IndexerCore.Services;
+namespace IndexerCore.Services.Indexing;
 
 public sealed class MessageBatchProcessor(IndexerDbContext db, DataChunkHandler chunks, AttachmentService attachments,
     CollectionCreateHandler collections)
