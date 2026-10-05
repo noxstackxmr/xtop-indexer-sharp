@@ -17,6 +17,7 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
     public DbSet<PrimaryPurchase> PrimaryPurchases => Set<PrimaryPurchase>();
     public DbSet<PrimaryPurchaseItem> PrimaryPurchaseItems => Set<PrimaryPurchaseItem>();
     public DbSet<ItemBurn> ItemBurns => Set<ItemBurn>();
+    public DbSet<ItemTrade> ItemTrades => Set<ItemTrade>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -143,5 +144,20 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
         burn.HasKey(b => b.OutputId);
         burn.HasOne(b => b.Output).WithOne(o => o.Burn).HasForeignKey<ItemBurn>(b => b.OutputId).OnDelete(DeleteBehavior.Cascade);
         burn.HasOne(b => b.Transaction).WithMany().HasForeignKey(b => b.TransactionId).OnDelete(DeleteBehavior.Cascade);
+
+        var trade = modelBuilder.Entity<ItemTrade>();
+        trade.HasKey(t => t.MessageId);
+        trade.Property(t => t.Price).HasPrecision(20, 0);
+        trade.Property(t => t.SellerAmount).HasPrecision(20, 0);
+        trade.Property(t => t.RoyaltyAmount).HasPrecision(20, 0);
+        trade.Property(t => t.PlatformFee).HasPrecision(20, 0);
+        trade.Property(t => t.SellerPayout).HasMaxLength(64);
+        trade.Property(t => t.ReturnAddress).HasMaxLength(64);
+        trade.Property(t => t.ServiceAddress).HasMaxLength(64);
+        trade.HasOne(t => t.Message).WithOne().HasForeignKey<ItemTrade>(t => t.MessageId).OnDelete(DeleteBehavior.Cascade);
+        trade.HasOne(t => t.PreviousOutput).WithOne(o => o.Trade).HasForeignKey<ItemTrade>(t => t.PreviousOutputId).OnDelete(DeleteBehavior.Cascade);
+        trade.HasOne(t => t.SuccessorOutput).WithOne(o => o.TradeOrigin).HasForeignKey<ItemTrade>(t => t.SuccessorOutputId).OnDelete(DeleteBehavior.Cascade);
+        trade.HasOne(t => t.Listing).WithMany().HasForeignKey(t => t.ListingId).OnDelete(DeleteBehavior.Cascade);
+        trade.HasIndex(t => t.ListingId).IsUnique();
     }
 }

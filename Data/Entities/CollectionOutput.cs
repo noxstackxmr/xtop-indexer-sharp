@@ -28,4 +28,6 @@ public sealed class CollectionOutput
     public PrimaryPurchaseItem? Purchase { get; set; }
     public PrimaryPurchaseItem? PurchaseOrigin { get; set; }
     public ItemBurn? Burn { get; set; }
+    public ItemTrade? Trade { get; set; }
+    public ItemTrade? TradeOrigin { get; set; }
 }

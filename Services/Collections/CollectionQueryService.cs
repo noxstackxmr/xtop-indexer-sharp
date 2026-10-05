@@ -29,7 +29,7 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateS
             {
                 c.ProtocolId, c.Name, c.MaxSupply, c.MetadataMode, c.PrimaryPrice, c.SaleStartUtc, c.RoyaltyBps,
                 PreparedCount = db.CollectionOutputs.LongCount(o => o.CollectionId == c.Id && o.Kind == CollectionOutputKind.Item &&
-                    o.Split == null && o.Purchase == null && o.PurchaseOrigin == null && o.Burn == null),
+                    o.Split == null && o.Purchase == null && o.PurchaseOrigin == null && o.Trade == null && o.TradeOrigin == null && o.Burn == null),
                 BurnedCount = db.ItemBurns.LongCount(b => b.Output.CollectionId == c.Id),
                 MintedCount = db.PrimaryPurchaseItems.LongCount(i => i.CollectionId == c.Id),
                 PrimaryVolume = db.PrimaryPurchases.Where(p => p.CollectionId == c.Id).Sum(p => (decimal?)p.CreatorAmount) ?? 0,
@@ -68,7 +68,7 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateS
         var feeBps = configurations.FindPrimaryFee(collection.Network, collection.ConfigHash, block.Height);
         var fee = feeBps == null ? (decimal?)null : decimal.Floor(collection.PrimaryPrice * feeBps.Value / 10000);
         var prepared = await db.CollectionOutputs.LongCountAsync(o => o.CollectionId == collection.Id && o.Kind == CollectionOutputKind.Item &&
-            o.Split == null && o.Purchase == null && o.PurchaseOrigin == null && o.Burn == null, cancellationToken);
+            o.Split == null && o.Purchase == null && o.PurchaseOrigin == null && o.Trade == null && o.TradeOrigin == null && o.Burn == null, cancellationToken);
         var burned = await db.ItemBurns.LongCountAsync(b => b.Output.CollectionId == collection.Id, cancellationToken);
         var minted = await db.PrimaryPurchaseItems.LongCountAsync(i => i.CollectionId == collection.Id, cancellationToken);
         var volume = await db.PrimaryPurchases.Where(p => p.CollectionId == collection.Id).SumAsync(p => (decimal?)p.CreatorAmount, cancellationToken) ?? 0;

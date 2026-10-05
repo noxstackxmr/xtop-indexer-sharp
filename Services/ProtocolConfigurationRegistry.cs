@@ -8,11 +8,11 @@ namespace IndexerCore.Services;
 
 public sealed class ProtocolConfigurationRegistry
 {
-    private readonly Dictionary<string, (long Height, CollectionCreatePolicy Policy, ushort? PrimaryFeeBps)> configurations = [];
+    private readonly Dictionary<string, (long Height, CollectionCreatePolicy Policy, ushort? PrimaryFeeBps, ushort? SecondaryFeeBps)> configurations = [];
 
     public ProtocolConfigurationRegistry(IOptions<ProtocolOptions> options)
     {
-        if ((from configuration in options.Value.Configurations let policy = configuration.BuildPolicy() where !configurations.TryAdd(Convert.ToHexString(policy.ConfigHash), (configuration.ActivationHeight, policy, configuration.PrimaryFeeBps)) select configuration).Any())
+        if ((from configuration in options.Value.Configurations let policy = configuration.BuildPolicy() where !configurations.TryAdd(Convert.ToHexString(policy.ConfigHash), (configuration.ActivationHeight, policy, configuration.PrimaryFeeBps, configuration.SecondaryFeeBps)) select configuration).Any())
         {
             throw new FormatException("duplicate protocol configuration");
         }
@@ -40,5 +40,12 @@ public sealed class ProtocolConfigurationRegistry
     {
         _ = Resolve(network, hash, height);
         return configurations[Convert.ToHexString(hash)].PrimaryFeeBps;
+    }
+
+    public ushort ResolveSecondaryFee(byte network, byte[] hash, long height)
+    {
+        _ = Resolve(network, hash, height);
+        return configurations[Convert.ToHexString(hash)].SecondaryFeeBps
+            ?? throw new NotSupportedException("secondary trades require configuration V3");
     }
 }

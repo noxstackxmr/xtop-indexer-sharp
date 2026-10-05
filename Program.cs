@@ -53,6 +53,7 @@ builder.Services.AddScoped<CollectionStateService>();
 builder.Services.AddScoped<CollectionControlHandler>();
 builder.Services.AddScoped<IssueSplitHandler>();
 builder.Services.AddScoped<PrimaryPurchaseHandler>();
+builder.Services.AddScoped<SecondaryTradeHandler>();
 builder.Services.AddScoped<IssuanceQueryService>();
 builder.Services.AddScoped<CollectionQueryService>();
 builder.Services.AddScoped<ItemQueryService>();
@@ -84,7 +85,8 @@ await using (var scope = app.Services.CreateAsyncScope())
     await configurations.ValidateHistoryAsync(db, CancellationToken.None);
     await scope.ServiceProvider.GetRequiredService<ItemIdentityBackfill>().RunAsync(CancellationToken.None);
     await db.Messages.Where(m => m.Status == MessageStatus.Unsupported && m.Version == XtopMessageReader.CurrentVersion &&
-                                (m.Operation == 1 || m.Operation == 2 || m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F || m.Operation == 0x12 || m.Operation == 9 || m.Operation == 0x13))
+                                (m.Operation == 1 || m.Operation == 2 || m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F || m.Operation == 0x12 || m.Operation == 9 || m.Operation == 0x13 ||
+                                 m.Operation == 0x14 || m.Operation == 0x15 || m.Operation == 0x16))
         .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.Status, MessageStatus.Pending).SetProperty(m => m.Error, (string?)null));
     app.Logger.LogInformation("Database is up to date.");
 }

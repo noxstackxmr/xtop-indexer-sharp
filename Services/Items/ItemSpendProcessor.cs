@@ -53,6 +53,7 @@ public sealed class ItemSpendProcessor(IndexerDbContext db, MoneroRpcClient rpc)
                 .Where(Matches(batch))
                 .Include(o => o.SourceMessage).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
                 .Include(o => o.Purchase).ThenInclude(i => i!.Purchase).ThenInclude(p => p.Message).ThenInclude(m => m.Transaction)
+                .Include(o => o.Trade).ThenInclude(t => t!.Message).ThenInclude(m => m.Transaction)
                 .Include(o => o.Burn).ThenInclude(b => b!.Transaction)
                 .ToArrayAsync(cancellationToken);
             foreach (var output in outputs)
@@ -60,11 +61,11 @@ public sealed class ItemSpendProcessor(IndexerDbContext db, MoneroRpcClient rpc)
                 var origin = output.SourceMessage.Transaction;
                 if (origin.Block.Height > block.Height || (origin.Block.Height == block.Height && origin.Position >= position))
                     throw new InvalidDataException("item spend precedes its output");
-                if (output.Purchase != null)
+                if (output.Purchase != null || output.Trade != null)
                 {
-                    var purchase = output.Purchase.Purchase.Message.Transaction;
+                    var purchase = output.Purchase?.Purchase.Message.Transaction ?? output.Trade!.Message.Transaction;
                     if (purchase.BlockId != block.Id || purchase.Position != position || !purchase.Hash.AsSpan().SequenceEqual(hash))
-                        throw new InvalidDataException("item input conflicts with its indexed purchase");
+                        throw new InvalidDataException("item input conflicts with its indexed transition");
                     if (output.Burn != null) db.ItemBurns.Remove(output.Burn);
                     continue;
                 }

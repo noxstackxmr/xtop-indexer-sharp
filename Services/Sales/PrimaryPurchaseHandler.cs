@@ -35,11 +35,11 @@ public sealed class PrimaryPurchaseHandler(IndexerDbContext db, ProtocolConfigur
                 throw new FormatException("purchase must not spend a management output");
             var source = await db.CollectionOutputs.Include(o => o.Collection).ThenInclude(c => c.TermsAttachment)
                 .Include(o => o.SourceMessage).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
-                .Include(o => o.Purchase).Include(o => o.PurchaseOrigin).Include(o => o.Burn)
+                .Include(o => o.Purchase).Include(o => o.PurchaseOrigin).Include(o => o.Burn).Include(o => o.Trade).Include(o => o.TradeOrigin)
                 .SingleOrDefaultAsync(o => o.Network == block.Network && o.KeyImage == image, cancellationToken);
             if (source == null) continue;
             if (source.Kind != CollectionOutputKind.Item || source.RangeStart == null || source.RangeEnd != source.RangeStart + 1 ||
-                source.RangeStart < 0 || source.RangeEnd > source.Collection.MaxSupply || source.PurchaseOrigin != null ||
+                source.RangeStart < 0 || source.RangeEnd > source.Collection.MaxSupply || source.PurchaseOrigin != null || source.Trade != null || source.TradeOrigin != null ||
                 (source.Purchase != null && source.Purchase.PurchaseMessageId != message.TransactionId) ||
                 (source.Burn != null && source.Burn.TransactionId != message.TransactionId))
                 throw new FormatException("primary purchase requires prepared unsold NFT outputs");

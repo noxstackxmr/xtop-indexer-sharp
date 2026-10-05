@@ -11,12 +11,14 @@ using Microsoft.EntityFrameworkCore;
 namespace IndexerCore.Services.Indexing;
 
 public sealed class MessageBatchProcessor(IndexerDbContext db, DataChunkHandler chunks, AttachmentService attachments,
-    CollectionCreateHandler collections, CollectionControlHandler controls, IssueSplitHandler splits, PrimaryPurchaseHandler purchases)
+    CollectionCreateHandler collections, CollectionControlHandler controls, IssueSplitHandler splits, PrimaryPurchaseHandler purchases,
+    SecondaryTradeHandler trades)
 {
     public static IQueryable<Message> PendingMessages(IndexerDbContext db, byte network) => db.Messages
         .Where(m => (m.Status == MessageStatus.Pending ||
                      (m.Status == MessageStatus.Parsed && (m.Operation == 0x01 || m.Operation == 0x02 ||
-                         m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F || m.Operation == 0x12 || m.Operation == 9 || m.Operation == 0x13))) &&
+                         m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F || m.Operation == 0x12 || m.Operation == 9 || m.Operation == 0x13 ||
+                         m.Operation == 0x14 || m.Operation == 0x15 || m.Operation == 0x16))) &&
                     m.Transaction.Block.Network == network);
 
     public async Task<int> ProcessAsync(byte network, CancellationToken cancellationToken)
@@ -55,6 +57,12 @@ public sealed class MessageBatchProcessor(IndexerDbContext db, DataChunkHandler 
                     case 9:
                     case 0x13:
                         await purchases.HandleAsync(message, envelope, cancellationToken);
+                        message.Status = MessageStatus.Valid;
+                        break;
+                    case 0x14:
+                    case 0x15:
+                    case 0x16:
+                        await trades.HandleAsync(message, envelope, cancellationToken);
                         message.Status = MessageStatus.Valid;
                         break;
                     default:
