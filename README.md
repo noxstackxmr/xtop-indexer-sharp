@@ -38,11 +38,5 @@ Native binaries are built in `Monero/Native/build`. Build and publish copy the m
 |---|---|
 | `/api/collections?page=1&pageSize=20` | Collection summaries, newest first |
 | `/api/collections/{id}` | Terms, current metadata locations, current control, latest change and creation data |
-
-`id` is the 64-character hex CREATE transaction ID. `page` starts at 1; `pageSize` is 1–100. Invalid parameters return 400; a missing collection returns 404. At most eight collection requests run concurrently; excess requests return 429.
-
-Amounts use decimal strings in Monero atomic units (1 XMR = 10^12). Keys and hashes use lowercase hex. Times use UTC. `scannedTip` identifies the scanned chain snapshot, not completion of all message processing. Responses are read from a consistent database snapshot and are not cached.
-
-Metadata URLs are returned as stored; external JSON and images are not fetched. `metadataMode` is the creation mode; `metadataState` is `open`, `unrevealed` or `revealed`. `locations` and `currentControl` reflect the latest validated management operation. `lastChange` is null before the first change. Its attachment reference describes that operation's patch, which may contain only one URI role.
-
-`termsAttachment`, `locationsAttachment` and `creationOutputs` retain their CREATE values. Control records describe validated bindings, not an independent check for spends outside the protocol. 
+| `/api/items?page=1&pageSize=20` | Items; optional `collectionId` and `status` filters |
+| `/api/items/{itemId}` | Owner, output, metadata, primary purchase and burn data |
