@@ -33,5 +33,18 @@ public sealed class ItemsController(ItemQueryService items) : ControllerBase
         return Ok(item);
     }
 
+    [HttpGet("{itemId}/history")]
+    public async Task<ActionResult<ItemHistoryResponse>> GetHistory(string itemId,
+        [FromServices] ItemHistoryQueryService history, CancellationToken cancellationToken,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        if (!IsId(itemId)) return Problem(statusCode: 400, title: "invalid item id", detail: "expected 64 hex characters");
+        if (page < 1 || pageSize is < 1 or > 100 || (long)(page - 1) * pageSize > int.MaxValue)
+            return Problem(statusCode: 400, title: "invalid pagination", detail: "page must be positive, pageSize must be 1..100, and the offset must fit int32");
+        var result = await history.GetAsync(Convert.FromHexString(itemId), page, pageSize, cancellationToken);
+        if (result == null) return Problem(statusCode: 404, title: "item not found");
+        return Ok(result);
+    }
+
     private static bool IsId(string value) => value.Length == 64 && value.All(char.IsAsciiHexDigit);
 }

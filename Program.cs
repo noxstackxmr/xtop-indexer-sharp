@@ -13,6 +13,7 @@ using IndexerCore.Services.Indexing;
 using IndexerCore.Services.Issuance;
 using IndexerCore.Services.Sales;
 using IndexerCore.Services.Items;
+using IndexerCore.Services.Listings;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
@@ -57,6 +58,8 @@ builder.Services.AddScoped<SecondaryTradeHandler>();
 builder.Services.AddScoped<IssuanceQueryService>();
 builder.Services.AddScoped<CollectionQueryService>();
 builder.Services.AddScoped<ItemQueryService>();
+builder.Services.AddScoped<ItemHistoryQueryService>();
+builder.Services.AddScoped<ListingQueryService>();
 builder.Services.AddScoped<ItemIdentityBackfill>();
 builder.Services.AddScoped<ItemSpendProcessor>();
 builder.Services.AddScoped<MessageBatchProcessor>();
