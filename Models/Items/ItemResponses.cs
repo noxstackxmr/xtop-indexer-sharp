@@ -13,11 +13,13 @@ public sealed record ItemMetadataResponse(string State, string? ItemsMetadataUri
 public sealed record ItemBurnResponse(string Reason, string TransactionId, long BlockHeight, string BlockHash,
     int TransactionPosition, DateTimeOffset BlockTimeUtc);
 
-public sealed record ItemListingResponse(string TransactionId, string PriceAtomic, string SellerOwnerKey, string ServiceOwnerKey,
-    PayoutResponse SellerPayout, PayoutResponse ReturnAddress, PayoutResponse ServiceAddress, int PlatformFeeBps);
+public sealed record ItemListingResponse(string TransactionId, string PriceAtomic, string SellerOwnerKey, string? ServiceOwnerKey,
+    PayoutResponse SellerPayout, PayoutResponse ReturnAddress, PayoutResponse? ServiceAddress, int PlatformFeeBps,
+    string Mode = "marketplace", string? SignerOwnerKey = null, PayoutResponse? ListingAddress = null,
+    string? MarketplaceId = null, string? MarketplaceConfigHash = null);
 
 public sealed record ItemTradeResponse(string Operation, string TransactionId, string? ListingTransactionId,
-    string? SellerAmountAtomic, string? RoyaltyAmountAtomic, string? PlatformFeeAtomic);
+    string? SellerAmountAtomic, string? RoyaltyAmountAtomic, string? PlatformFeeAtomic, string? Mode = null);
 
 public sealed record ItemResponse(string ItemId, string CollectionId, long Serial, string Status, string OwnerKey,
     ItemOutputResponse Output, ItemPurchaseResponse? PrimaryPurchase, ItemMetadataResponse Metadata, ItemBurnResponse? Burn,

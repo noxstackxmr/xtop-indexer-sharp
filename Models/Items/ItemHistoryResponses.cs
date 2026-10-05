@@ -8,7 +8,7 @@ public sealed record ItemHistoryPaymentsResponse(string SellerAmountAtomic, stri
 public sealed record ItemHistoryEventResponse(string Type, CollectionCreationResponse Transaction,
     string? FromOwnerKey, string? ToOwnerKey, string? ServiceOwnerKey, string? ListingId,
     ItemOutputResponse? PreviousOutput, ItemOutputResponse? Output, string? PriceAtomic,
-    ItemHistoryPaymentsResponse? Payments);
+    ItemHistoryPaymentsResponse? Payments, string? Mode = null, string? SignerOwnerKey = null);
 
 public sealed record ItemHistoryResponse(string Network, byte NetworkId, ScannedTipResponse? ScannedTip,
     ScannedTipResponse? SpendCheckedTip, string ItemId, string CollectionId, long Serial,

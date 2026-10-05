@@ -29,8 +29,9 @@ public sealed class ItemQueryService(IndexerDbContext db, CollectionStateService
         if (collectionId != null) query = query.Where(o => o.Collection.ProtocolId == collectionId);
         if (status == "prepared_unsold") query = query.Where(o => o.PurchaseOrigin == null && o.TradeOrigin == null && o.Burn == null);
         if (status == "sold") query = query.Where(o => (o.PurchaseOrigin != null ||
-            (o.TradeOrigin != null && o.TradeOrigin.Operation != ListingProofs.ListOperation)) && o.Burn == null);
-        if (status == "listed") query = query.Where(o => o.TradeOrigin != null && o.TradeOrigin.Operation == ListingProofs.ListOperation && o.Burn == null);
+            (o.TradeOrigin != null && o.TradeOrigin.Operation != ListingProofs.ListOperation && o.TradeOrigin.Operation != ListingProofs.ClientListOperation)) && o.Burn == null);
+        if (status == "listed") query = query.Where(o => o.TradeOrigin != null &&
+            (o.TradeOrigin.Operation == ListingProofs.ListOperation || o.TradeOrigin.Operation == ListingProofs.ClientListOperation) && o.Burn == null);
         if (status == "burned") query = query.Where(o => o.Burn != null);
         var total = await query.LongCountAsync(cancellationToken);
         var rows = await WithDetails(query).OrderByDescending(o => o.Collection.CreationMessage.Transaction.Block.Height)
@@ -106,7 +107,9 @@ public sealed class ItemQueryService(IndexerDbContext db, CollectionStateService
         var block = transaction.Block;
         var primary = purchase?.Message.Transaction;
         var trade = output.TradeOrigin;
-        var listing = trade is { Operation: ListingProofs.ListOperation } ? trade : null;
+        var listing = ListingModes.IsListing(trade?.Operation) ? trade : null;
+        var opening = listing ?? trade?.Listing;
+        var client = opening?.Operation == ListingProofs.ClientListOperation;
         var burn = output.Burn?.Transaction;
         return new(Hex(output.ItemId!), Hex(output.Collection.ProtocolId), output.RangeStart!.Value,
             burn != null ? "burned" : listing != null ? "listed" : purchase == null ? "prepared_unsold" : "sold",
@@ -118,14 +121,16 @@ public sealed class ItemQueryService(IndexerDbContext db, CollectionStateService
             metadata, burn == null ? null : new("external_spend", Hex(burn.Hash), burn.Block.Height, Hex(burn.Block.Hash),
                 burn.Position, burn.Block.Timestamp.ToUniversalTime()),
             listing == null || burn != null ? null : new(Hex(transaction.Hash), Atomic(listing.Price!.Value), Hex(listing.PreviousOutput.OwnerKey),
-                Hex(output.OwnerKey), Payout(listing.SellerPayout!), Payout(listing.ReturnAddress!), Payout(listing.ServiceAddress!), listing.FeeBps!.Value),
+                client ? null : Hex(output.OwnerKey), Payout(listing.SellerPayout!), Payout(listing.ReturnAddress!), client ? null : Payout(listing.ServiceAddress!), listing.FeeBps!.Value,
+                ListingModes.Name(listing.Operation), Hex(output.OwnerKey), Payout(listing.ServiceAddress!),
+                listing.MarketplaceId == null ? null : Hex(listing.MarketplaceId), listing.MarketplaceConfigHash == null ? null : Hex(listing.MarketplaceConfigHash)),
             trade == null ? null : new(trade.Operation switch
             {
-                ListingProofs.ListOperation => "listed", ListingProofs.CancelOperation => "cancelled", SecondaryPurchaseProofs.Operation => "purchased",
+                ListingProofs.ListOperation or ListingProofs.ClientListOperation => "listed", ListingProofs.CancelOperation => "cancelled", SecondaryPurchaseProofs.Operation => "purchased",
                 _ => throw new InvalidDataException("invalid stored trade operation")
             }, Hex(transaction.Hash), trade.Listing == null ? null : Hex(trade.Listing.Message.Transaction.Hash),
                 trade.SellerAmount == null ? null : Atomic(trade.SellerAmount.Value), trade.RoyaltyAmount == null ? null : Atomic(trade.RoyaltyAmount.Value),
-                trade.PlatformFee == null ? null : Atomic(trade.PlatformFee.Value)));
+                trade.PlatformFee == null ? null : Atomic(trade.PlatformFee.Value), opening == null ? null : ListingModes.Name(opening.Operation)));
     }
 
     private async Task<ScannedTipResponse?> ReadTipAsync(CancellationToken cancellationToken, bool spendsOnly = false)

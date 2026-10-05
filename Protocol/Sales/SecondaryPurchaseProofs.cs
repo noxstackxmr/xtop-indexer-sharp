@@ -12,6 +12,7 @@ public static class SecondaryPurchaseProofs
 {
     public const byte Operation = 0x16;
     public const ushort Profile = 0xFF0B;
+    public const ushort ClientProfile = 0xFF0F;
     private static bool Same(byte[] a, byte[] b) => a.AsSpan().SequenceEqual(b);
     public static SecondaryPayment[] Payments(CollectionCreatePolicy policy, ListedTerms terms, SecondaryFeePolicy fees)
     {
@@ -34,7 +35,7 @@ public static class SecondaryPurchaseProofs
     public static byte[] Context(MoneroProofTransaction tx, XtopMessage message, CollectionCreatePolicy policy, ListingState listing, SecondaryFeePolicy fees)
         => MoneroProofCrypto.Hash(PrimarySaleEncoding.Write(w =>
         {
-            w.Write("XTOP:CUSTODY:SALE:LAB:V14\0"u8);
+            w.Write(listing.Terms.Mode == ListingModes.Client ? "XTOP:CLIENT:SALE:V15\0"u8 : "XTOP:CUSTODY:SALE:LAB:V14\0"u8);
             w.Write(ListingProofs.Context(tx, message, policy, listing.Seller, listing));
             w.Write(fees.RoyaltyBps); w.Write(fees.RoyaltyAddress); w.Write(fees.PlatformBps);
             w.Write(policy.FeeSpendKey); w.Write(policy.FeeViewKey);
@@ -47,6 +48,8 @@ public static class SecondaryPurchaseProofs
     private static CancelPayload Validate(MoneroProofTransaction tx, XtopMessage message, CollectionCreatePolicy policy, ListingState listing, SecondaryFeePolicy fees)
     {
         var payload = ListingProofs.ReadCancel(message); var next = payload.Successor;
+        if (listing.Terms.Mode is not (ListingModes.Marketplace or ListingModes.Client) ||
+            (listing.Terms.Mode == ListingModes.Client && message.Version != 15)) throw new FormatException("invalid purchase mode or wire version");
         var payments = Payments(policy, listing.Terms, fees);
         if (message.Version != policy.WireVersion || message.Operation != Operation || !Same(message.ConfigHash, policy.ConfigHash) ||
             !Same(payload.ItemId, ListingProofs.ItemId(listing.Seller)) || !Same(payload.ListingId, listing.TransactionId) ||
@@ -58,9 +61,9 @@ public static class SecondaryPurchaseProofs
         if (tx.InputKeyImages.Length != 2 || tx.InputKeyImages.Count(i => Same(i, listing.Binding.KeyImage)) != 1 ||
             tx.InputKeyImages.Select(Convert.ToHexString).Distinct().Count() != 2 || tx.InputKeyImages.Any(i => Same(i, next.KeyImage)) ||
             tx.Outputs.Length != payments.Length + 2 || next.OutputIndex >= tx.Outputs.Length)
-            throw new FormatException("expected service input, buyer input, item, payouts and change");
+            throw new FormatException("expected listing input, buyer input, item, payouts and change");
         if (next.OwnershipWitness != 0 || next.AmountWitness != 0 || message.Witnesses.Length != 1 ||
-            message.Witnesses[0].Kind != 7 || message.Witnesses[0].Profile != Profile || message.Witnesses[0].Proof.Length != 225 + payments.Length * 98)
+            message.Witnesses[0].Kind != 7 || message.Witnesses[0].Profile != (listing.Terms.Mode == ListingModes.Client ? ClientProfile : Profile) || message.Witnesses[0].Proof.Length != 225 + payments.Length * 98)
             throw new FormatException("unexpected secondary proof layout");
         return payload;
     }

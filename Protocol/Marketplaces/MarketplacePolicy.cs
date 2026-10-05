@@ -49,7 +49,7 @@ public static class MarketplacePolicyReader
 
     public static MarketplacePolicy ReadListing(XtopMessage message, byte network)
     {
-        if (message.Version != MarketplaceFormat.WireVersion || message.Operation != ListingProofs.ListOperation ||
+        if (message.Version != MarketplaceFormat.WireVersion || !ListingModes.IsListing(message.Operation) ||
             message.Payload.Length != 339 + SecondaryLength)
             throw new FormatException("expected marketplace listing policy");
         return Read(message.Payload.AsSpan(339).ToArray(), network, message.ConfigHash, true);
@@ -68,9 +68,13 @@ public static class MarketplacePolicyReader
         MarketplaceFormat.Address(address);
         if (secondary)
         {
-            if (modes is < 1 or > 3 || (modes & MarketplaceFormat.CustodyMode) == 0) throw new FormatException("marketplace does not support custody sales");
-            MarketplaceFormat.Address(custody!);
-            if (address.AsSpan().SequenceEqual(custody)) throw new FormatException("fee and custody addresses must differ");
+            if (modes is < 1 or > 3) throw new FormatException("invalid marketplace sale modes");
+            if ((modes & MarketplaceFormat.CustodyMode) != 0)
+            {
+                MarketplaceFormat.Address(custody!);
+                if (address.AsSpan().SequenceEqual(custody)) throw new FormatException("fee and custody addresses must differ");
+            }
+            else if (custody!.Any(b => b != 0)) throw new FormatException("unexpected custody address");
         }
         var ownHash = MarketplaceFormat.Leaf(secondary ? (byte)2 : (byte)1, terms);
         var hash = MarketplaceFormat.Root(network, key, secondary ? otherHash : ownHash, secondary ? ownHash : otherHash, metadataHash);

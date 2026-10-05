@@ -47,7 +47,7 @@ public sealed class ListingQueryService(IndexerDbContext db, ProtocolConfigurati
     }
 
     private IQueryable<ItemTrade> Listings() => db.ItemTrades.AsNoTracking()
-        .Where(t => t.Operation == ListingProofs.ListOperation && t.PreviousOutput.Network == options.Value.XtopNetwork);
+        .Where(t => (t.Operation == ListingProofs.ListOperation || t.Operation == ListingProofs.ClientListOperation) && t.PreviousOutput.Network == options.Value.XtopNetwork);
 
     private static IQueryable<ItemTrade> Details(IQueryable<ItemTrade> query) => query
         .Include(t => t.Message).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
@@ -61,6 +61,7 @@ public sealed class ListingQueryService(IndexerDbContext db, ProtocolConfigurati
         var collection = listing.PreviousOutput.Collection;
         var tx = listing.Message.Transaction;
         var successor = listing.SuccessorOutput;
+        var client = listing.Operation == ListingProofs.ClientListOperation;
         var settlement = successor.Trade;
         var status = settlement?.Operation switch
         {
@@ -78,11 +79,12 @@ public sealed class ListingQueryService(IndexerDbContext db, ProtocolConfigurati
         var resolution = settlement?.Message.Transaction ?? successor.Burn?.Transaction;
         return new(Hex(tx.Hash), Hex(successor.ItemId!), Hex(collection.ProtocolId), successor.RangeStart!.Value, status,
             Atomic(price), listing.FeeBps.Value, Atomic(fee), Atomic(price + fee), Atomic(price - royalty), collection.RoyaltyBps,
-            Atomic(royalty), Hex(listing.PreviousOutput.OwnerKey), Hex(successor.OwnerKey), Payout(listing.SellerPayout!),
-            Payout(listing.ReturnAddress!), Payout(listing.ServiceAddress!), Payout(collection.RoyaltyPayout),
+            Atomic(royalty), Hex(listing.PreviousOutput.OwnerKey), client ? null : Hex(successor.OwnerKey), Payout(listing.SellerPayout!),
+            Payout(listing.ReturnAddress!), client ? null : Payout(listing.ServiceAddress!), Payout(collection.RoyaltyPayout),
             Payout([.. policy.FeeSpendKey, .. policy.FeeViewKey]), Output(successor), confirmations, remaining,
             status == "active" && remaining == 0, resolution == null ? null : Transaction(resolution),
             listing.MarketplaceId == null ? null : Hex(listing.MarketplaceId),
-            listing.MarketplaceConfigHash == null ? null : Hex(listing.MarketplaceConfigHash));
+            listing.MarketplaceConfigHash == null ? null : Hex(listing.MarketplaceConfigHash),
+            ListingModes.Name(listing.Operation), Hex(successor.OwnerKey), Payout(listing.ServiceAddress!));
     }
 }

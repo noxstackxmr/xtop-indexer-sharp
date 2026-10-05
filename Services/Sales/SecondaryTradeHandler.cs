@@ -13,15 +13,7 @@ public sealed class SecondaryTradeHandler(IndexerDbContext db, ProtocolConfigura
 {
     public async Task HandleAsync(Message message, XtopMessage envelope, CancellationToken cancellationToken)
     {
-        var profile = envelope.Operation switch
-        {
-            ListingProofs.ListOperation => ListingProofs.ListProfile,
-            ListingProofs.CancelOperation => ListingProofs.CancelProfile,
-            SecondaryPurchaseProofs.Operation => SecondaryPurchaseProofs.Profile,
-            _ => throw new FormatException("invalid secondary operation")
-        };
         if (envelope.Witnesses.Length != 1 || envelope.Witnesses[0].Kind != 7) throw new FormatException("secondary proof is required");
-        if (envelope.Witnesses[0].Profile != profile) throw new NotSupportedException("secondary proof profile is not supported");
         var transaction = message.Transaction; var block = transaction.Block;
         var native = await transactions.ReadAsync(message, cancellationToken);
         var sources = new List<CollectionOutput>();
@@ -48,14 +40,24 @@ public sealed class SecondaryTradeHandler(IndexerDbContext db, ProtocolConfigura
         if (origin.Block.Height >= block.Height) throw new FormatException("trade must follow the source block");
         var item = Item(previous, collection.ProtocolId);
         if (!previous.ItemId.AsSpan().SequenceEqual(ListingProofs.ItemId(item))) throw new InvalidDataException("stored item identity mismatch");
-        var opening = previous.TradeOrigin is { Operation: ListingProofs.ListOperation } ? previous.TradeOrigin : null;
+        var opening = ListingModes.IsListing(previous.TradeOrigin?.Operation) ? previous.TradeOrigin : null;
+        var client = opening?.Operation == ListingProofs.ClientListOperation;
+        var profile = envelope.Operation switch
+        {
+            ListingProofs.ListOperation => ListingProofs.ListProfile,
+            ListingProofs.ClientListOperation => ListingProofs.ClientListProfile,
+            ListingProofs.CancelOperation => client ? ListingProofs.ClientCancelProfile : ListingProofs.CancelProfile,
+            SecondaryPurchaseProofs.Operation => client ? SecondaryPurchaseProofs.ClientProfile : SecondaryPurchaseProofs.Profile,
+            _ => throw new FormatException("invalid secondary operation")
+        };
+        if (envelope.Witnesses[0].Profile != profile) throw new NotSupportedException("secondary proof profile does not match the listing mode");
         MarketplacePolicy? marketplace = null;
         CollectionCreatePolicy policy;
         ushort feeBps;
         if (envelope.Version == MarketplaceFormat.WireVersion)
         {
             if (collection.MarketplacePolicy == null) throw new FormatException("marketplace trading requires a wire 15 collection");
-            marketplace = envelope.Operation == ListingProofs.ListOperation
+            marketplace = ListingModes.IsListing(envelope.Operation)
                 ? MarketplacePolicyReader.ReadListing(envelope, block.Network)
                 : opening?.MarketplacePolicy is { } bytes
                     ? MarketplacePolicyReader.Read(bytes, block.Network, opening.MarketplaceConfigHash!, true)
@@ -72,7 +74,7 @@ public sealed class SecondaryTradeHandler(IndexerDbContext db, ProtocolConfigura
         NewBinding next;
         ListedTerms? terms = null;
         SecondaryPayment[]? payments = null;
-        if (envelope.Operation == ListingProofs.ListOperation)
+        if (ListingModes.IsListing(envelope.Operation))
         {
             if (opening != null) throw new FormatException("item is already listed");
             var result = ListingProofs.VerifyList(native, policy, item);
@@ -80,9 +82,9 @@ public sealed class SecondaryTradeHandler(IndexerDbContext db, ProtocolConfigura
         }
         else
         {
-            if (opening == null) throw new FormatException("item must have an active service listing");
+            if (opening == null) throw new FormatException("item must have an active listing");
             var listing = new ListingState(Item(opening.PreviousOutput, collection.ProtocolId), new(checked((ulong)opening.Price!), opening.SellerPayout!,
-                opening.ReturnAddress!, opening.ServiceAddress!), item.Binding, item.PublicKey, origin.Hash);
+                opening.ReturnAddress!, opening.ServiceAddress!, ListingModes.FromOperation(opening.Operation)), item.Binding, item.PublicKey, origin.Hash);
             if (envelope.Operation == ListingProofs.CancelOperation)
                 next = ListingProofs.VerifyCancel(native, policy, listing).Successor;
             else
@@ -108,7 +110,7 @@ public sealed class SecondaryTradeHandler(IndexerDbContext db, ProtocolConfigura
         {
             Message = message, Operation = envelope.Operation, PreviousOutput = previous, SuccessorOutput = successor,
             MarketplaceId = marketplace?.Identity(block.Network), MarketplaceConfigHash = marketplace?.ConfigHash,
-            MarketplacePolicy = envelope.Operation == ListingProofs.ListOperation ? marketplace?.Bytes : null,
+            MarketplacePolicy = ListingModes.IsListing(envelope.Operation) ? marketplace?.Bytes : null,
             Listing = opening, Price = terms?.Price, SellerPayout = terms?.SellerPayout, ReturnAddress = terms?.ReturnAddress,
             ServiceAddress = terms?.ServiceAddress, FeeBps = feeBps,
             SellerAmount = Paid(4), RoyaltyAmount = Paid(2), PlatformFee = Paid(3)

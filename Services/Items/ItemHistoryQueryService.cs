@@ -51,15 +51,18 @@ public sealed class ItemHistoryQueryService(IndexerDbContext db, IOptions<Monero
     {
         var trade = output.TradeOrigin;
         var primary = output.PurchaseOrigin;
-        var listed = trade?.Operation == ListingProofs.ListOperation;
+        var listed = ListingModes.IsListing(trade?.Operation);
+        var opening = listed ? trade : trade?.Listing;
+        var mode = opening == null ? null : ListingModes.Name(opening.Operation);
+        var client = opening?.Operation == ListingProofs.ClientListOperation;
         var owner = listed ? trade!.PreviousOutput.OwnerKey : output.OwnerKey;
         if (burn)
             return new("burned", Transaction(output.Burn!.Transaction), Hex(owner), null,
-                listed ? Hex(output.OwnerKey) : null, listed ? Hex(output.SourceMessage.Transaction.Hash) : null,
-                Output(output), null, null, null);
+                listed && !client ? Hex(output.OwnerKey) : null, listed ? Hex(output.SourceMessage.Transaction.Hash) : null,
+                Output(output), null, null, null, listed ? mode : null, listed ? Hex(output.OwnerKey) : null);
         var type = trade?.Operation switch
         {
-            ListingProofs.ListOperation => "listed",
+            ListingProofs.ListOperation or ListingProofs.ClientListOperation => "listed",
             ListingProofs.CancelOperation => "cancelled",
             SecondaryPurchaseProofs.Operation => "secondary_purchase",
             null => primary == null ? "prepared" : "primary_purchase",
@@ -80,8 +83,9 @@ public sealed class ItemHistoryQueryService(IndexerDbContext db, IOptions<Monero
             payments = new(Atomic(trade.SellerAmount!.Value), Atomic(trade.RoyaltyAmount!.Value), trade.FeeBps!.Value,
                 Atomic(trade.PlatformFee!.Value), Atomic(price!.Value + trade.PlatformFee.Value));
         return new(type, Transaction(output.SourceMessage.Transaction), from == null ? null : Hex(from), Hex(owner),
-            service == null ? null : Hex(service), listingId == null ? null : Hex(listingId),
-            previous == null ? null : Output(previous), Output(output), price == null ? null : Atomic(price.Value), payments);
+            service == null || client ? null : Hex(service), listingId == null ? null : Hex(listingId),
+            previous == null ? null : Output(previous), Output(output), price == null ? null : Atomic(price.Value), payments,
+            mode, service == null ? null : Hex(service));
     }
 
     private sealed class HistoryRow

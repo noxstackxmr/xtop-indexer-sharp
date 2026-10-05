@@ -5,7 +5,7 @@ using IndexerCore.Monero;
 
 namespace IndexerCore.Protocol.Sales;
 
-public sealed record ListedTerms(ulong Price, byte[] SellerPayout, byte[] ReturnAddress, byte[] ServiceAddress);
+public sealed record ListedTerms(ulong Price, byte[] SellerPayout, byte[] ReturnAddress, byte[] ServiceAddress, byte Mode = 1);
 public sealed record ListingItem(byte[] CollectionId, uint Serial, NewBinding Binding, byte[] PublicKey);
 public sealed record ListingState(ListingItem Seller, ListedTerms Terms, NewBinding Binding, byte[] PublicKey, byte[] TransactionId);
 public sealed record ListingPayload(byte[] ItemId, byte[] PreviousImage, ListedTerms Terms, NewBinding Successor);
@@ -17,6 +17,9 @@ public static class ListingProofs
     public const byte CancelOperation = 0x15;
     public const ushort ListProfile = 0xFF09;
     public const ushort CancelProfile = 0xFF0A;
+    public const byte ClientListOperation = 0x18;
+    public const ushort ClientListProfile = 0xFF0D;
+    public const ushort ClientCancelProfile = 0xFF0E;
     public const int ListLength = 708;
     public const int CancelLength = 540;
 
@@ -44,7 +47,8 @@ public static class ListingProofs
     {
         var r = new PayloadReader(message.Payload);
         var id = r.Take(32).ToArray(); var previous = r.Take(32).ToArray();
-        var terms = new ListedTerms(r.ReadUInt64(), r.Take(64).ToArray(), r.Take(64).ToArray(), r.Take(64).ToArray());
+        var terms = new ListedTerms(r.ReadUInt64(), r.Take(64).ToArray(), r.Take(64).ToArray(), r.Take(64).ToArray(),
+            ListingModes.FromOperation(message.Operation));
         var binding = Binding(ref r);
         if (message.Version == 15) r.Take(Marketplaces.MarketplacePolicyReader.SecondaryLength);
         r.EnsureEnd();
@@ -106,9 +110,19 @@ public static class ListingProofs
         {
             var marketplace = Marketplaces.MarketplacePolicyReader.ReadListing(message, policy.Network);
             Marketplaces.MarketplacePolicyReader.RequireMatch(marketplace, policy);
-            if (!Same(payload.Terms.ServiceAddress, marketplace.CustodyAddress!)) throw new FormatException("marketplace custody address mismatch");
+            if ((marketplace.Modes & payload.Terms.Mode) == 0) throw new FormatException("marketplace does not support the listing mode");
+            if (payload.Terms.Mode == ListingModes.Marketplace && !Same(payload.Terms.ServiceAddress, marketplace.CustodyAddress!))
+                throw new FormatException("marketplace custody address mismatch");
         }
-        Validate(tx, message, policy, previous.Binding, previous.PublicKey, payload.Successor, ListOperation, ListProfile,
+        if (payload.Terms.Mode == ListingModes.Client)
+        {
+            if (message.Version != 15) throw new FormatException("client listing requires wire 15");
+            if (!Same(payload.Terms.ServiceAddress, payload.Terms.ReturnAddress) || !Same(payload.Successor.OwnerKey, previous.Binding.OwnerKey))
+                throw new FormatException("client listing must preserve seller control");
+        }
+        Validate(tx, message, policy, previous.Binding, previous.PublicKey, payload.Successor,
+            payload.Terms.Mode == ListingModes.Client ? ClientListOperation : ListOperation,
+            payload.Terms.Mode == ListingModes.Client ? ClientListProfile : ListProfile,
             ListLength + (message.Version == 15 ? Marketplaces.MarketplacePolicyReader.SecondaryLength : 0));
         return payload;
     }
@@ -121,12 +135,14 @@ public static class ListingProofs
         if (!Same(payload.Successor.OwnerKey, listing.Seller.Binding.OwnerKey))
             throw new FormatException("cancel must restore the seller owner key");
         ValidateTerms(listing.Terms);
-        Validate(tx, message, policy, listing.Binding, listing.PublicKey, payload.Successor, CancelOperation, CancelProfile, CancelLength);
+        if (listing.Terms.Mode == ListingModes.Client && message.Version != 15) throw new FormatException("client cancellation requires wire 15");
+        Validate(tx, message, policy, listing.Binding, listing.PublicKey, payload.Successor, CancelOperation,
+            listing.Terms.Mode == ListingModes.Client ? ClientCancelProfile : CancelProfile, CancelLength);
         return payload;
     }
     private static void ValidateTerms(ListedTerms terms)
     {
-        if (terms.Price == 0) throw new FormatException("listing price must be positive");
+        if (terms.Price == 0 || terms.Mode is not (ListingModes.Marketplace or ListingModes.Client)) throw new FormatException("invalid listing price or mode");
         foreach (var address in new[] { terms.SellerPayout, terms.ReturnAddress, terms.ServiceAddress })
         {
             if (address.Length != 64) throw new FormatException("expected standard address keys");
@@ -155,7 +171,8 @@ public static class ListingProofs
         ListingItem previous, ListingState? listing)
         => MoneroProofCrypto.Hash(PrimarySaleEncoding.Write(w =>
         {
-            w.Write("XTOP:CUSTODY:LAB:V14\0"u8); w.Write("XTOP"u8); w.Write(message.Version); w.Write(policy.Network);
+            w.Write(message.Operation == ClientListOperation || listing?.Terms.Mode == ListingModes.Client ? "XTOP:CLIENT:V15\0"u8 : "XTOP:CUSTODY:LAB:V14\0"u8);
+            w.Write("XTOP"u8); w.Write(message.Version); w.Write(policy.Network);
             w.Write(message.ConfigHash); w.Write(message.Operation); w.Write(message.Witnesses[0].Profile); w.Write(policy.NftAmount);
             w.Write(previous.CollectionId); w.Write(previous.Serial); Binding(w, previous.Binding); w.Write(previous.PublicKey);
             if (listing != null)

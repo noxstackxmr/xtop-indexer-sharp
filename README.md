@@ -41,7 +41,7 @@ Native binaries are built in `Monero/Native/build`. Build and publish copy the m
 | `/api/collections?page=1&pageSize=20` | Collection summaries, newest first |
 | `/api/collections/{id}` | Terms, current metadata locations, current control, latest change and creation data |
 | `/api/items?page=1&pageSize=20` | Items; optional `collectionId` and `status` filters |
-| `/api/items/{itemId}` | Owner, output, metadata, primary purchase and burn data |
-| `/api/listings?page=1&pageSize=20` | Active listings, prices, payout keys and output maturity; optional `collectionId` filter |
-| `/api/listings/{listingId}` | Listing terms, output and current status, including purchased, cancelled or burned listings |
-| `/api/items/{itemId}/history?page=1&pageSize=20` | Item preparation, purchases, listings, cancellations and external spends, newest first |
+| `/api/items/{itemId}` | Owner, output, metadata, primary purchase, burn data and active listing mode |
+| `/api/listings?page=1&pageSize=20` | Active listings, mode, signer, prices, payout keys and output maturity; optional `collectionId` filter |
+| `/api/listings/{listingId}` | Listing mode, terms, output and current status, including purchased, cancelled or burned listings |
+| `/api/items/{itemId}/history?page=1&pageSize=20` | Item preparation, purchases, listings, cancellations and external spends, with secondary sale modes, newest first |
