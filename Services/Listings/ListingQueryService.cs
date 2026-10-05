@@ -72,7 +72,7 @@ public sealed class ListingQueryService(IndexerDbContext db, ProtocolConfigurati
         var price = listing.Price!.Value;
         var fee = decimal.Floor(price * listing.FeeBps!.Value / 10000);
         var royalty = decimal.Floor(price * collection.RoyaltyBps / 10000);
-        var policy = configurations.Resolve(collection.Network, collection.ConfigHash, tx.Block.Height);
+        var policy = configurations.ResolveListing(listing, collection, tx.Block.Height);
         var confirmations = spendTip == null ? 0 : Math.Max(0, spendTip.Height - tx.Block.Height + 1);
         var remaining = Math.Max(0, 10 - confirmations);
         var resolution = settlement?.Message.Transaction ?? successor.Burn?.Transaction;
@@ -81,6 +81,8 @@ public sealed class ListingQueryService(IndexerDbContext db, ProtocolConfigurati
             Atomic(royalty), Hex(listing.PreviousOutput.OwnerKey), Hex(successor.OwnerKey), Payout(listing.SellerPayout!),
             Payout(listing.ReturnAddress!), Payout(listing.ServiceAddress!), Payout(collection.RoyaltyPayout),
             Payout([.. policy.FeeSpendKey, .. policy.FeeViewKey]), Output(successor), confirmations, remaining,
-            status == "active" && remaining == 0, resolution == null ? null : Transaction(resolution));
+            status == "active" && remaining == 0, resolution == null ? null : Transaction(resolution),
+            listing.MarketplaceId == null ? null : Hex(listing.MarketplaceId),
+            listing.MarketplaceConfigHash == null ? null : Hex(listing.MarketplaceConfigHash));
     }
 }

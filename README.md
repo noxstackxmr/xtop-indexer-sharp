@@ -36,6 +36,8 @@ Native binaries are built in `Monero/Native/build`. Build and publish copy the m
 
 | GET | Response |
 |---|---|
+| `/api/marketplaces?page=1&pageSize=20` | Registered marketplaces and current configurations, oldest registration first |
+| `/api/marketplaces/{marketplaceId}?configHash={hash}` | Current or selected configuration, fees, addresses and communication endpoint |
 | `/api/collections?page=1&pageSize=20` | Collection summaries, newest first |
 | `/api/collections/{id}` | Terms, current metadata locations, current control, latest change and creation data |
 | `/api/items?page=1&pageSize=20` | Items; optional `collectionId` and `status` filters |

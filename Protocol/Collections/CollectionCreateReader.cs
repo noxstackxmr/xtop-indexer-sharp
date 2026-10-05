@@ -20,6 +20,7 @@ public static class CollectionCreateReader
         if (rootKind > 1) throw new FormatException("invalid issuance root kind");
         var root = ReadBinding(ref reader);
         var paymentWitness = reader.ReadByte();
+        if (message.Version == 15) reader.Take(Marketplaces.MarketplacePolicyReader.CreationLength);
         reader.EnsureEnd();
         if (control.OutputIndex == root.OutputIndex || control.KeyImage.AsSpan().SequenceEqual(root.KeyImage))
             throw new FormatException("control and issuance root must use distinct outputs and key images");

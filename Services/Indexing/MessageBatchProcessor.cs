@@ -18,7 +18,7 @@ public sealed class MessageBatchProcessor(IndexerDbContext db, DataChunkHandler 
         .Where(m => (m.Status == MessageStatus.Pending ||
                      (m.Status == MessageStatus.Parsed && (m.Operation == 0x01 || m.Operation == 0x02 ||
                          m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F || m.Operation == 0x12 || m.Operation == 9 || m.Operation == 0x13 ||
-                         m.Operation == 0x14 || m.Operation == 0x15 || m.Operation == 0x16))) &&
+                         m.Operation == 0x14 || m.Operation == 0x15 || m.Operation == 0x16 || m.Operation == 0x17))) &&
                     m.Transaction.Block.Network == network);
 
     public async Task<int> ProcessAsync(byte network, CancellationToken cancellationToken)
@@ -36,6 +36,10 @@ public sealed class MessageBatchProcessor(IndexerDbContext db, DataChunkHandler 
                 message.Operation = envelope.Operation;
                 switch (envelope.Operation)
                 {
+                    case 0x17:
+                        await new Marketplaces.MarketplaceHandler(db).HandleAsync(message, envelope, cancellationToken);
+                        message.Status = MessageStatus.Valid;
+                        break;
                     case 0x01:
                         affected.Add(await chunks.HandleAsync(message, envelope, cancellationToken));
                         message.Status = MessageStatus.Valid;

@@ -6,7 +6,10 @@ using IndexerCore.Monero;
 namespace IndexerCore.Protocol.Collections;
 
 public sealed record CollectionCreatePolicy(byte Network, byte[] ConfigHash, byte[] FeeSpendKey, byte[] FeeViewKey,
-    ulong CreationFee, ulong ControlAmount, ulong NftAmount);
+    ulong CreationFee, ulong ControlAmount, ulong NftAmount)
+{
+    public byte WireVersion { get; init; } = 14;
+}
 
 public static class CollectionCreateProofs
 {
@@ -70,8 +73,10 @@ public static class CollectionCreateProofs
             throw new FormatException("invalid creation policy");
         MoneroProofCrypto.RequirePoint(policy.FeeSpendKey);
         MoneroProofCrypto.RequirePoint(policy.FeeViewKey);
-        if (message.Version != 14 || !message.ConfigHash.AsSpan().SequenceEqual(policy.ConfigHash))
+        if (message.Version != policy.WireVersion || !message.ConfigHash.AsSpan().SequenceEqual(policy.ConfigHash))
             throw new FormatException("creation version or configuration mismatch");
+        if (message.Version == 15)
+            Marketplaces.MarketplacePolicyReader.RequireMatch(Marketplaces.MarketplacePolicyReader.ReadCreation(message, policy.Network), policy);
         var creation = CollectionCreateReader.Read(message);
         if (creation.Terms.TotalLength != expectedTerms.TotalLength || !creation.Terms.Hash.AsSpan().SequenceEqual(expectedTerms.Hash) ||
             !creation.Terms.MerkleRoot.AsSpan().SequenceEqual(expectedTerms.MerkleRoot))

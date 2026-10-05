@@ -18,10 +18,13 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
     public DbSet<PrimaryPurchaseItem> PrimaryPurchaseItems => Set<PrimaryPurchaseItem>();
     public DbSet<ItemBurn> ItemBurns => Set<ItemBurn>();
     public DbSet<ItemTrade> ItemTrades => Set<ItemTrade>();
+    public DbSet<Marketplace> Marketplaces => Set<Marketplace>();
+    public DbSet<MarketplaceRevision> MarketplaceRevisions => Set<MarketplaceRevision>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        Mapping.MarketplaceMapping.Configure(modelBuilder);
 
         var block = modelBuilder.Entity<Block>();
         block.HasIndex(b => new { b.Network, b.Height }).IsUnique();

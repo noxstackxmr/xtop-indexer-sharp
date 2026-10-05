@@ -14,7 +14,7 @@ public static class DataChunkReader
 {
     public static ParsedDataChunk Read(XtopMessage message)
     {
-        if (message.Version != XtopMessageReader.CurrentVersion)
+        if (!XtopMessageReader.Supports(message.Version))
             throw new NotSupportedException($"unsupported DATA_CHUNK version {message.Version}");
         if (message.Operation != 0x01 || message.Witnesses.Length != 0)
             throw new FormatException("expected DATA_CHUNK without witnesses");

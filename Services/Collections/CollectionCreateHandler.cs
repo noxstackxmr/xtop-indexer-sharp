@@ -15,7 +15,8 @@ public sealed class CollectionCreateHandler(IndexerDbContext db, CollectionTerms
     {
         var transaction = message.Transaction;
         var block = transaction.Block;
-        var policy = configurations.Resolve(block.Network, envelope.ConfigHash, block.Height);
+        var policy = configurations.ResolveCreation(envelope, block.Network, block.Height);
+        var marketplace = envelope.Version == 15 ? Protocol.Marketplaces.MarketplacePolicyReader.ReadCreation(envelope, block.Network) : null;
         if (envelope.Witnesses.Any(w => w.Profile != 0 && w.Profile != CollectionCreateProofs.Profile))
             throw new NotSupportedException("creation proof profile is not supported");
         var create = CollectionCreateReader.Read(envelope);
@@ -45,6 +46,7 @@ public sealed class CollectionCreateHandler(IndexerDbContext db, CollectionTerms
         var collection = new Collection
         {
             Network = block.Network, ProtocolId = [.. transaction.Hash], ConfigHash = [.. policy.ConfigHash],
+            MarketplaceId = marketplace?.Identity(block.Network), MarketplacePolicy = marketplace?.Bytes,
             CreationMessageId = message.TransactionId, CreationMessage = message,
             TermsAttachment = termsAttachment, LocationsAttachment = resolved.LocationsAttachment,
             Name = terms.Name, MaxSupply = terms.MaxSupply, MetadataMode = terms.MetadataMode,

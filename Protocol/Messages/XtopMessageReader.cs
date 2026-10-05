@@ -10,9 +10,10 @@ public sealed record XtopMessage(byte Version, byte[] ConfigHash, byte Operation
 public static class XtopMessageReader
 {
     public const byte CurrentVersion = 14;
+    public static bool Supports(byte version) => version is 14 or 15;
 
     public static byte ReadOperation(ReadOnlySpan<byte> bytes)
-        => bytes.Length > 38 && bytes[4] == CurrentVersion ? bytes[38] : (byte)0;
+        => bytes.Length > 38 && Supports(bytes[4]) ? bytes[38] : (byte)0;
 
     public static XtopMessage? ReadExtra(ReadOnlySpan<byte> extra, byte expectedNetwork)
     {
@@ -85,7 +86,7 @@ public static class XtopMessageReader
         if (!Take(ref bytes, 4).SequenceEqual("XTOP"u8))
             throw new FormatException("invalid XTOP magic");
         var version = Take(ref bytes, 1)[0];
-        if (version != CurrentVersion) throw new NotSupportedException($"unsupported XTOP version {version}");
+        if (!Supports(version)) throw new NotSupportedException($"unsupported XTOP version {version}");
         var network = Take(ref bytes, 1)[0];
         if (network != expectedNetwork)
             throw new FormatException($"expected XTOP network {expectedNetwork}, got {network}");

@@ -71,7 +71,7 @@ public static class PrimaryBatchProofs
         var totals = Totals(policies); var first = policies[0]; var count = policies.Length;
         var payments = Recipients(first, totals);
         var message = XtopMessageReader.ReadMessage(tx.Message, first.Configuration.Network);
-        if (message.Operation != Operation || !Same(message.ConfigHash, first.Configuration.ConfigHash) ||
+        if (message.Version != first.Configuration.WireVersion || message.Operation != Operation || !Same(message.ConfigHash, first.Configuration.ConfigHash) ||
             tx.Message.Length != MessageLength(count, totals.Platform != 0) || message.Witnesses.Length != 1 ||
             message.Witnesses[0].Kind != 7 || message.Witnesses[0].Profile != Profile || message.Witnesses[0].Proof.Length != 65 + 96 * count + 97 * payments.Length ||
             tx.InputKeyImages.Length != count + 1 || tx.Outputs.Length != count + payments.Length + 1 ||

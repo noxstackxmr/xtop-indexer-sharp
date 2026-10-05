@@ -57,7 +57,7 @@ public static class CompactIssueSplitProofs
 
     private static IssueSplit Validate(MoneroProofTransaction tx, XtopMessage message, CollectionCreatePolicy policy, IssuanceState parent)
     {
-        if (message.Version != 14 || !message.ConfigHash.AsSpan().SequenceEqual(policy.ConfigHash) || policy.NftAmount == 0)
+        if (message.Version != policy.WireVersion || !message.ConfigHash.AsSpan().SequenceEqual(policy.ConfigHash) || policy.NftAmount == 0)
             throw new FormatException("compact version or configuration mismatch");
         var payload = Read(message);
         if (message.Witnesses.Length != 1 || message.Witnesses[0].Kind != 7 ||

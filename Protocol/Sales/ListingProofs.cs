@@ -45,7 +45,9 @@ public static class ListingProofs
         var r = new PayloadReader(message.Payload);
         var id = r.Take(32).ToArray(); var previous = r.Take(32).ToArray();
         var terms = new ListedTerms(r.ReadUInt64(), r.Take(64).ToArray(), r.Take(64).ToArray(), r.Take(64).ToArray());
-        var binding = Binding(ref r); r.EnsureEnd();
+        var binding = Binding(ref r);
+        if (message.Version == 15) r.Take(Marketplaces.MarketplacePolicyReader.SecondaryLength);
+        r.EnsureEnd();
         return new(id, previous, terms, binding);
     }
     public static CancelPayload ReadCancel(XtopMessage message)
@@ -100,7 +102,14 @@ public static class ListingProofs
         if (!Same(payload.ItemId, ItemId(previous)) || !Same(payload.PreviousImage, previous.Binding.KeyImage))
             throw new FormatException("listing item mismatch");
         ValidateTerms(payload.Terms);
-        Validate(tx, message, policy, previous.Binding, previous.PublicKey, payload.Successor, ListOperation, ListProfile, ListLength);
+        if (message.Version == 15)
+        {
+            var marketplace = Marketplaces.MarketplacePolicyReader.ReadListing(message, policy.Network);
+            Marketplaces.MarketplacePolicyReader.RequireMatch(marketplace, policy);
+            if (!Same(payload.Terms.ServiceAddress, marketplace.CustodyAddress!)) throw new FormatException("marketplace custody address mismatch");
+        }
+        Validate(tx, message, policy, previous.Binding, previous.PublicKey, payload.Successor, ListOperation, ListProfile,
+            ListLength + (message.Version == 15 ? Marketplaces.MarketplacePolicyReader.SecondaryLength : 0));
         return payload;
     }
     private static CancelPayload ValidateCancel(MoneroProofTransaction tx, XtopMessage message, CollectionCreatePolicy policy, ListingState listing)
@@ -127,7 +136,7 @@ public static class ListingProofs
     private static void Validate(MoneroProofTransaction tx, XtopMessage message, CollectionCreatePolicy policy,
         NewBinding previous, byte[] previousKey, NewBinding next, byte operation, ushort profile, int length)
     {
-        if (message.Version != 14 || message.Operation != operation || !Same(message.ConfigHash, policy.ConfigHash) ||
+        if (message.Version != policy.WireVersion || message.Operation != operation || !Same(message.ConfigHash, policy.ConfigHash) ||
             policy.NftAmount == 0 || previous.NominalAmount != policy.NftAmount || next.NominalAmount != policy.NftAmount)
             throw new FormatException("listing profile or nominal mismatch");
         foreach (var point in new[] { previousKey, previous.KeyImage, previous.OwnerKey, next.KeyImage, next.OwnerKey })

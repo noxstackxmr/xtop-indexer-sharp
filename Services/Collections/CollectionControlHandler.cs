@@ -16,13 +16,13 @@ public sealed class CollectionControlHandler(IndexerDbContext db, CollectionStat
     {
         var transaction = message.Transaction;
         var block = transaction.Block;
-        var policy = configurations.Resolve(block.Network, envelope.ConfigHash, block.Height);
         var step = CollectionControlReader.Read(envelope);
         var collection = await db.Collections
             .Include(c => c.CreationMessage).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
             .Include(c => c.TermsAttachment).Include(c => c.Outputs.Where(o => o.Kind == CollectionOutputKind.Control))
             .SingleOrDefaultAsync(c => c.Network == block.Network && c.ProtocolId == step.CollectionId, cancellationToken)
             ?? throw new FormatException("collection does not exist");
+        var policy = configurations.ResolveCollection(collection, block.Height);
         var creation = collection.CreationMessage.Transaction;
         if (creation.Block.Height > block.Height || (creation.Block.Height == block.Height && creation.Position >= transaction.Position))
             throw new FormatException("collection must precede its management operation");

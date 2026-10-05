@@ -3,6 +3,7 @@ using IndexerCore.Data.Entities;
 using IndexerCore.Protocol.Collections;
 using IndexerCore.Protocol.Messages;
 using IndexerCore.Protocol.Sales;
+using IndexerCore.Protocol.Marketplaces;
 using IndexerCore.Services.Indexing;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,8 +23,6 @@ public sealed class SecondaryTradeHandler(IndexerDbContext db, ProtocolConfigura
         if (envelope.Witnesses.Length != 1 || envelope.Witnesses[0].Kind != 7) throw new FormatException("secondary proof is required");
         if (envelope.Witnesses[0].Profile != profile) throw new NotSupportedException("secondary proof profile is not supported");
         var transaction = message.Transaction; var block = transaction.Block;
-        var policy = configurations.Resolve(block.Network, envelope.ConfigHash, block.Height);
-        var feeBps = configurations.ResolveSecondaryFee(block.Network, envelope.ConfigHash, block.Height);
         var native = await transactions.ReadAsync(message, cancellationToken);
         var sources = new List<CollectionOutput>();
         foreach (var image in native.InputKeyImages)
@@ -45,12 +44,31 @@ public sealed class SecondaryTradeHandler(IndexerDbContext db, ProtocolConfigura
             (previous.Trade != null && previous.Trade.MessageId != message.TransactionId) ||
             (previous.Burn != null && previous.Burn.TransactionId != message.TransactionId))
             throw new FormatException("trade requires an available purchased item");
-        if (!collection.ConfigHash.AsSpan().SequenceEqual(policy.ConfigHash)) throw new FormatException("secondary collection configuration mismatch");
         var origin = previous.SourceMessage.Transaction;
         if (origin.Block.Height >= block.Height) throw new FormatException("trade must follow the source block");
         var item = Item(previous, collection.ProtocolId);
         if (!previous.ItemId.AsSpan().SequenceEqual(ListingProofs.ItemId(item))) throw new InvalidDataException("stored item identity mismatch");
         var opening = previous.TradeOrigin is { Operation: ListingProofs.ListOperation } ? previous.TradeOrigin : null;
+        MarketplacePolicy? marketplace = null;
+        CollectionCreatePolicy policy;
+        ushort feeBps;
+        if (envelope.Version == MarketplaceFormat.WireVersion)
+        {
+            if (collection.MarketplacePolicy == null) throw new FormatException("marketplace trading requires a wire 15 collection");
+            marketplace = envelope.Operation == ListingProofs.ListOperation
+                ? MarketplacePolicyReader.ReadListing(envelope, block.Network)
+                : opening?.MarketplacePolicy is { } bytes
+                    ? MarketplacePolicyReader.Read(bytes, block.Network, opening.MarketplaceConfigHash!, true)
+                    : throw new FormatException("missing marketplace listing policy");
+            policy = marketplace.BuildPolicy(block.Network); feeBps = marketplace.FeeBps;
+        }
+        else
+        {
+            if (collection.MarketplacePolicy != null) throw new FormatException("marketplace collection requires wire 15");
+            policy = configurations.Resolve(block.Network, envelope.ConfigHash, block.Height);
+            feeBps = configurations.ResolveSecondaryFee(block.Network, envelope.ConfigHash, block.Height);
+            if (!collection.ConfigHash.AsSpan().SequenceEqual(policy.ConfigHash)) throw new FormatException("secondary collection configuration mismatch");
+        }
         NewBinding next;
         ListedTerms? terms = null;
         SecondaryPayment[]? payments = null;
@@ -89,6 +107,8 @@ public sealed class SecondaryTradeHandler(IndexerDbContext db, ProtocolConfigura
         db.ItemTrades.Add(new ItemTrade
         {
             Message = message, Operation = envelope.Operation, PreviousOutput = previous, SuccessorOutput = successor,
+            MarketplaceId = marketplace?.Identity(block.Network), MarketplaceConfigHash = marketplace?.ConfigHash,
+            MarketplacePolicy = envelope.Operation == ListingProofs.ListOperation ? marketplace?.Bytes : null,
             Listing = opening, Price = terms?.Price, SellerPayout = terms?.SellerPayout, ReturnAddress = terms?.ReturnAddress,
             ServiceAddress = terms?.ServiceAddress, FeeBps = feeBps,
             SellerAmount = Paid(4), RoyaltyAmount = Paid(2), PlatformFee = Paid(3)

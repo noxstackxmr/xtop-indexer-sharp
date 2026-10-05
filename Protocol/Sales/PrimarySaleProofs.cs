@@ -99,7 +99,7 @@ public static class PrimarySaleProofs
             policy.Payout[..32], policy.Payout[32..], config.FeeSpendKey, config.FeeViewKey }) MoneroProofCrypto.RequirePoint(point);
         if (Fee(policy) != 0 && policy.Payout.AsSpan().SequenceEqual([.. config.FeeSpendKey, .. config.FeeViewKey]))
             throw new NotSupportedException("primary profile requires separate payout addresses");
-        if (message.Version != 14 || message.Operation != 9 || !message.ConfigHash.AsSpan().SequenceEqual(config.ConfigHash) ||
+        if (message.Version != config.WireVersion || message.Operation != 9 || !message.ConfigHash.AsSpan().SequenceEqual(config.ConfigHash) ||
             message.Witnesses.Length != 3 || tx.InputKeyImages.Length < 2 ||
             tx.InputKeyImages.Count(i => i.AsSpan().SequenceEqual(policy.Current.KeyImage)) != 1)
             throw new FormatException("invalid primary envelope or native parent spend");

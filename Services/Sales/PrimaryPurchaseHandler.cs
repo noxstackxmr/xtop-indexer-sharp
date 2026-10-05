@@ -25,8 +25,6 @@ public sealed class PrimaryPurchaseHandler(IndexerDbContext db, ProtocolConfigur
         if (envelope.Witnesses.Length == 0) throw new FormatException("primary proofs are required");
         if (envelope.Witnesses.Any(w => w.Profile != profile)) throw new NotSupportedException("primary proof profile is not supported");
         var transaction = message.Transaction; var block = transaction.Block;
-        var configuration = configurations.Resolve(block.Network, envelope.ConfigHash, block.Height);
-        var feeBps = configurations.ResolvePrimaryFee(block.Network, envelope.ConfigHash, block.Height);
         var native = await transactions.ReadAsync(message, cancellationToken);
         var sources = new List<CollectionOutput>();
         foreach (var image in native.InputKeyImages)
@@ -46,13 +44,16 @@ public sealed class PrimaryPurchaseHandler(IndexerDbContext db, ProtocolConfigur
             var origin = source.SourceMessage.Transaction;
             if (origin.Block.Height > block.Height || (origin.Block.Height == block.Height && origin.Position >= transaction.Position))
                 throw new FormatException("NFT output must precede its purchase");
-            if (!source.Collection.ConfigHash.AsSpan().SequenceEqual(configuration.ConfigHash))
+            if (!source.Collection.ConfigHash.AsSpan().SequenceEqual(envelope.ConfigHash))
                 throw new FormatException("primary collection configuration mismatch");
             sources.Add(source);
         }
         if (sources.Count is < 1 or > 5 || (!batch && sources.Count != 1) || sources.Select(s => s.CollectionId).Distinct().Count() != 1)
             throw new FormatException("purchase must consume NFTs of one collection");
         sources = sources.OrderBy(s => s.RangeStart).ToList();
+        var configuration = configurations.ResolveCollection(sources[0].Collection, block.Height);
+        var feeBps = configurations.FindPrimaryFee(sources[0].Collection, block.Height)
+            ?? throw new NotSupportedException("primary purchases require configuration V2 or a marketplace policy");
         if (sources.Select(s => s.RangeStart).Distinct().Count() != sources.Count) throw new FormatException("duplicate primary serial");
         var policies = sources.Select(s => new PrimarySalePolicy(configuration, s.Collection.ProtocolId, checked((uint)s.RangeStart!.Value),
             OriginalBinding(s), s.PublicKey, new ChunkReference(s.Collection.TermsAttachment.Hash, checked((uint)s.Collection.TermsAttachment.TotalLength),

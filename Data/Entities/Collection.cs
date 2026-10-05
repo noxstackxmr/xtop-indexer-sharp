@@ -6,6 +6,8 @@ public sealed class Collection
     public byte Network { get; set; }
     public byte[] ProtocolId { get; set; } = [];
     public byte[] ConfigHash { get; set; } = [];
+    public byte[]? MarketplaceId { get; set; }
+    public byte[]? MarketplacePolicy { get; set; }
     public long CreationMessageId { get; set; }
     public long TermsAttachmentId { get; set; }
     public long LocationsAttachmentId { get; set; }

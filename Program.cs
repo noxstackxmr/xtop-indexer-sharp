@@ -60,6 +60,7 @@ builder.Services.AddScoped<CollectionQueryService>();
 builder.Services.AddScoped<ItemQueryService>();
 builder.Services.AddScoped<ItemHistoryQueryService>();
 builder.Services.AddScoped<ListingQueryService>();
+builder.Services.AddScoped<IndexerCore.Services.Marketplaces.MarketplaceQueryService>();
 builder.Services.AddScoped<ItemIdentityBackfill>();
 builder.Services.AddScoped<ItemSpendProcessor>();
 builder.Services.AddScoped<MessageBatchProcessor>();
@@ -82,14 +83,14 @@ await using (var scope = app.Services.CreateAsyncScope())
     var db = scope.ServiceProvider.GetRequiredService<IndexerDbContext>();
     var configurations = scope.ServiceProvider.GetRequiredService<ProtocolConfigurationRegistry>();
     if (scope.ServiceProvider.GetRequiredService<IOptions<ProtocolOptions>>().Value.Configurations.Count == 0)
-        app.Logger.LogInformation("no protocol configurations; collection creation will remain unsupported");
+        app.Logger.LogInformation("no legacy configurations; wire 15 marketplace policies are read from chain messages");
     app.Logger.LogInformation("Applying database migrations...");
     await db.Database.MigrateAsync();
     await configurations.ValidateHistoryAsync(db, CancellationToken.None);
     await scope.ServiceProvider.GetRequiredService<ItemIdentityBackfill>().RunAsync(CancellationToken.None);
-    await db.Messages.Where(m => m.Status == MessageStatus.Unsupported && m.Version == XtopMessageReader.CurrentVersion &&
-                                (m.Operation == 1 || m.Operation == 2 || m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F || m.Operation == 0x12 || m.Operation == 9 || m.Operation == 0x13 ||
-                                 m.Operation == 0x14 || m.Operation == 0x15 || m.Operation == 0x16))
+    await db.Messages.Where(m => m.Status == MessageStatus.Unsupported && (m.Version == 14 || m.Version == 15) &&
+                                (m.Operation == 0 || m.Operation == 1 || m.Operation == 2 || m.Operation == 0x0D || m.Operation == 0x0E || m.Operation == 0x0F || m.Operation == 0x12 || m.Operation == 9 || m.Operation == 0x13 ||
+                                 m.Operation == 0x14 || m.Operation == 0x15 || m.Operation == 0x16 || m.Operation == 0x17))
         .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.Status, MessageStatus.Pending).SetProperty(m => m.Error, (string?)null));
     app.Logger.LogInformation("Database is up to date.");
 }

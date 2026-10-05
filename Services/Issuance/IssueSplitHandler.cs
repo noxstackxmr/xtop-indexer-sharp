@@ -14,12 +14,12 @@ public sealed class IssueSplitHandler(IndexerDbContext db, ProtocolConfiguration
     {
         var transaction = message.Transaction;
         var block = transaction.Block;
-        var policy = configurations.Resolve(block.Network, envelope.ConfigHash, block.Height);
         var reference = IssueSplitReader.ReadReference(envelope);
         var parent = await db.CollectionOutputs.Include(o => o.Collection).Include(o => o.Split)
             .Include(o => o.SourceMessage).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
             .SingleOrDefaultAsync(o => o.Network == block.Network && o.KeyImage == reference.ParentKeyImage, cancellationToken)
             ?? throw new FormatException("issuance parent does not exist");
+        var policy = configurations.ResolveCollection(parent.Collection, block.Height);
         if (!parent.Collection.ProtocolId.AsSpan().SequenceEqual(reference.CollectionId) ||
             !parent.Collection.ConfigHash.AsSpan().SequenceEqual(policy.ConfigHash))
             throw new FormatException("issuance collection or configuration mismatch");

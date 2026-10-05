@@ -9,7 +9,7 @@ public sealed record ListingResponse(string Id, string ItemId, string Collection
     string SellerOwnerKey, string ServiceOwnerKey, PayoutResponse SellerPayout, PayoutResponse ReturnAddress,
     PayoutResponse ServiceAddress, PayoutResponse RoyaltyPayout, PayoutResponse PlatformPayout,
     ItemOutputResponse Output, long Confirmations, long BlocksUntilUnlock, bool IsUnlocked,
-    CollectionCreationResponse? Resolution);
+    CollectionCreationResponse? Resolution, string? MarketplaceId = null, string? MarketplaceConfigHash = null);
 
 public sealed record ListingListResponse(string Network, byte NetworkId, ScannedTipResponse? ScannedTip,
     ScannedTipResponse? SpendCheckedTip, int Page, int PageSize, long Total, ListingResponse[] Listings);

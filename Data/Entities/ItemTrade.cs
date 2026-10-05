@@ -7,6 +7,9 @@ public sealed class ItemTrade
     public long PreviousOutputId { get; set; }
     public long SuccessorOutputId { get; set; }
     public long? ListingId { get; set; }
+    public byte[]? MarketplaceId { get; set; }
+    public byte[]? MarketplaceConfigHash { get; set; }
+    public byte[]? MarketplacePolicy { get; set; }
     public decimal? Price { get; set; }
     public byte[]? SellerPayout { get; set; }
     public byte[]? ReturnAddress { get; set; }

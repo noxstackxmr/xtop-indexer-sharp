@@ -48,7 +48,7 @@ public static class SecondaryPurchaseProofs
     {
         var payload = ListingProofs.ReadCancel(message); var next = payload.Successor;
         var payments = Payments(policy, listing.Terms, fees);
-        if (message.Version != 14 || message.Operation != Operation || !Same(message.ConfigHash, policy.ConfigHash) ||
+        if (message.Version != policy.WireVersion || message.Operation != Operation || !Same(message.ConfigHash, policy.ConfigHash) ||
             !Same(payload.ItemId, ListingProofs.ItemId(listing.Seller)) || !Same(payload.ListingId, listing.TransactionId) ||
             !Same(payload.PreviousImage, listing.Binding.KeyImage) || policy.NftAmount == 0 ||
             next.NominalAmount != policy.NftAmount || listing.Binding.NominalAmount != policy.NftAmount)

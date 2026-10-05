@@ -34,7 +34,7 @@ public static class IssueSplitProofs
 
     private static IssueSplit Validate(MoneroProofTransaction tx, XtopMessage message, CollectionCreatePolicy policy, IssuanceState parent)
     {
-        if (message.Version != 14 || !message.ConfigHash.AsSpan().SequenceEqual(policy.ConfigHash) || policy.NftAmount == 0)
+        if (message.Version != policy.WireVersion || !message.ConfigHash.AsSpan().SequenceEqual(policy.ConfigHash) || policy.NftAmount == 0)
             throw new FormatException("split version or configuration mismatch");
         var split = IssueSplitReader.Read(message);
         if (parent.CollectionId.Length != 32 || parent.Count < 2 || parent.Binding.NominalAmount == 0 ||

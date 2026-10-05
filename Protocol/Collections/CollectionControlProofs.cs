@@ -28,7 +28,7 @@ public static class CollectionControlProofs
 
     private static CollectionControl Validate(MoneroProofTransaction tx, XtopMessage message, CollectionCreatePolicy policy, CollectionControlState previous)
     {
-        if (message.Version != 14 || !message.ConfigHash.AsSpan().SequenceEqual(policy.ConfigHash))
+        if (message.Version != policy.WireVersion || !message.ConfigHash.AsSpan().SequenceEqual(policy.ConfigHash))
             throw new FormatException("control version or configuration mismatch");
         var step = CollectionControlReader.Read(message);
         if (previous.CollectionId.Length != 32 || !step.CollectionId.AsSpan().SequenceEqual(previous.CollectionId) ||
