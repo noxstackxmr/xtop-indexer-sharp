@@ -59,7 +59,8 @@ public sealed class MarketplaceQueryService(IndexerDbContext db, IOptions<Monero
             (r.Modes & 1) != 0 ? Payout(r.CustodyAddress) : null,
             Transaction(r.Marketplace.RegistrationMessage.Transaction), Transaction(r.Message.Transaction))
         {
-            SecondaryPolicy = Hex(MarketplacePolicyReader.Encode(configuration, message.Witnesses[0].Proof, true))
+            SecondaryPolicy = Hex(MarketplacePolicyReader.Encode(configuration, message.Witnesses[0].Proof, true)),
+            CreationPolicy = Hex(MarketplacePolicyReader.Encode(configuration, message.Witnesses[0].Proof, false))
         };
     }
 }

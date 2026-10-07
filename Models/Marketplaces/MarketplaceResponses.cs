@@ -9,6 +9,7 @@ public sealed record MarketplaceResponse(string Id, string ManagementPublicKey, 
     CollectionCreationResponse Registration, CollectionCreationResponse Publication)
 {
     public string? SecondaryPolicy { get; init; }
+    public string? CreationPolicy { get; init; }
 }
 
 public sealed record MarketplaceListResponse(string Network, byte NetworkId, ScannedTipResponse? ScannedTip,
