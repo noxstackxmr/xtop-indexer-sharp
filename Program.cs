@@ -60,6 +60,7 @@ builder.Services.AddScoped<CollectionQueryService>();
 builder.Services.AddScoped<ItemQueryService>();
 builder.Services.AddScoped<ItemHistoryQueryService>();
 builder.Services.AddScoped<ListingQueryService>();
+builder.Services.AddScoped<IndexerCore.Services.Transactions.TransactionStatusQueryService>();
 builder.Services.AddScoped<IndexerCore.Services.Marketplaces.MarketplaceQueryService>();
 builder.Services.AddScoped<ItemIdentityBackfill>();
 builder.Services.AddScoped<ItemSpendProcessor>();

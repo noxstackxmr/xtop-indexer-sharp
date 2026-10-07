@@ -115,7 +115,7 @@ public sealed class ItemQueryService(IndexerDbContext db, CollectionStateService
             burn != null ? "burned" : listing != null ? "listed" : purchase == null ? "prepared_unsold" : "sold",
             Hex(listing?.PreviousOutput.OwnerKey ?? output.OwnerKey),
             new(Hex(transaction.Hash), output.OutputIndex, Hex(output.PublicKey), Hex(output.KeyImage), Atomic(output.NominalAmount),
-                block.Height, Hex(block.Hash), block.Timestamp.ToUniversalTime()),
+                block.Height, Hex(block.Hash), block.Timestamp.ToUniversalTime(), 0, output.SourceMessage.Operation == 9 ? (byte)1 : (byte)0),
             purchase == null ? null : new(Hex(primary!.Hash), primary.Block.Height, Hex(primary.Block.Hash), primary.Block.Timestamp.ToUniversalTime(),
                 Atomic(output.Collection.PrimaryPrice), purchase.FeeBps, Atomic(decimal.Floor(output.Collection.PrimaryPrice * purchase.FeeBps / 10000))),
             metadata, burn == null ? null : new("external_spend", Hex(burn.Hash), burn.Block.Height, Hex(burn.Block.Hash),

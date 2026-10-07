@@ -10,7 +10,10 @@ public sealed record ListingResponse(string Id, string ItemId, string Collection
     PayoutResponse? ServiceAddress, PayoutResponse RoyaltyPayout, PayoutResponse PlatformPayout,
     ItemOutputResponse Output, long Confirmations, long BlocksUntilUnlock, bool IsUnlocked,
     CollectionCreationResponse? Resolution, string? MarketplaceId = null, string? MarketplaceConfigHash = null,
-    string Mode = "marketplace", string? SignerOwnerKey = null, PayoutResponse? ListingAddress = null);
+    string Mode = "marketplace", string? SignerOwnerKey = null, PayoutResponse? ListingAddress = null)
+{
+    public ItemOutputResponse? PreviousOutput { get; init; }
+}
 
 public sealed record ListingListResponse(string Network, byte NetworkId, ScannedTipResponse? ScannedTip,
     ScannedTipResponse? SpendCheckedTip, int Page, int PageSize, long Total, ListingResponse[] Listings);

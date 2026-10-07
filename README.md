@@ -45,3 +45,4 @@ Native binaries are built in `Monero/Native/build`. Build and publish copy the m
 | `/api/listings?page=1&pageSize=20` | Active listings, mode, signer, prices, payout keys and output maturity; optional `collectionId` filter |
 | `/api/listings/{listingId}` | Listing mode, terms, output and current status, including purchased, cancelled or burned listings |
 | `/api/items/{itemId}/history?page=1&pageSize=20` | Item preparation, purchases, listings, cancellations and external spends, with secondary sale modes, newest first |
+| `/api/transactions/{transactionId}` | Canonical indexed transaction, message validation status and block reference; null transaction while absent |

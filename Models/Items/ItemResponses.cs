@@ -3,7 +3,8 @@ using IndexerCore.Models.Collections;
 namespace IndexerCore.Models.Items;
 
 public sealed record ItemOutputResponse(string TransactionId, byte OutputIndex, string PublicKey, string KeyImage,
-    string NominalAmountAtomic, long BlockHeight, string BlockHash, DateTimeOffset BlockTimeUtc);
+    string NominalAmountAtomic, long BlockHeight, string BlockHash, DateTimeOffset BlockTimeUtc,
+    byte OwnershipWitness = 0, byte AmountWitness = 0);
 
 public sealed record ItemPurchaseResponse(string TransactionId, long BlockHeight, string BlockHash, DateTimeOffset BlockTimeUtc,
     string PriceAtomic, int PlatformFeeBps, string PlatformFeeAtomic);

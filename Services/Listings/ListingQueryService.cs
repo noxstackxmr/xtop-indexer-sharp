@@ -52,6 +52,7 @@ public sealed class ListingQueryService(IndexerDbContext db, ProtocolConfigurati
     private static IQueryable<ItemTrade> Details(IQueryable<ItemTrade> query) => query
         .Include(t => t.Message).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
         .Include(t => t.PreviousOutput).ThenInclude(o => o.Collection)
+        .Include(t => t.PreviousOutput).ThenInclude(o => o.SourceMessage).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
         .Include(t => t.SuccessorOutput).ThenInclude(o => o.SourceMessage).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
         .Include(t => t.SuccessorOutput).ThenInclude(o => o.Trade).ThenInclude(t => t!.Message).ThenInclude(m => m.Transaction).ThenInclude(t => t.Block)
         .Include(t => t.SuccessorOutput).ThenInclude(o => o.Burn).ThenInclude(b => b!.Transaction).ThenInclude(t => t.Block);
@@ -85,6 +86,9 @@ public sealed class ListingQueryService(IndexerDbContext db, ProtocolConfigurati
             status == "active" && remaining == 0, resolution == null ? null : Transaction(resolution),
             listing.MarketplaceId == null ? null : Hex(listing.MarketplaceId),
             listing.MarketplaceConfigHash == null ? null : Hex(listing.MarketplaceConfigHash),
-            ListingModes.Name(listing.Operation), Hex(successor.OwnerKey), Payout(listing.ServiceAddress!));
+            ListingModes.Name(listing.Operation), Hex(successor.OwnerKey), Payout(listing.ServiceAddress!))
+        {
+            PreviousOutput = Output(listing.PreviousOutput)
+        };
     }
 }

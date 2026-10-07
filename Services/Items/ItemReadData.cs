@@ -18,7 +18,7 @@ internal static class ItemReadData
     {
         var tx = output.SourceMessage.Transaction;
         return new(Hex(tx.Hash), output.OutputIndex, Hex(output.PublicKey), Hex(output.KeyImage), Atomic(output.NominalAmount),
-            tx.Block.Height, Hex(tx.Block.Hash), tx.Block.Timestamp.ToUniversalTime());
+            tx.Block.Height, Hex(tx.Block.Hash), tx.Block.Timestamp.ToUniversalTime(), 0, output.SourceMessage.Operation == 9 ? (byte)1 : (byte)0);
     }
     public static async Task<ScannedTipResponse?> Tip(IndexerDbContext db, byte network, bool processed, CancellationToken cancellationToken)
     {

@@ -3,6 +3,8 @@ using IndexerCore.Data;
 using IndexerCore.Data.Entities;
 using IndexerCore.Models.Marketplaces;
 using IndexerCore.Monero;
+using IndexerCore.Protocol.Marketplaces;
+using IndexerCore.Protocol.Messages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using static IndexerCore.Services.Items.ItemReadData;
@@ -46,6 +48,8 @@ public sealed class MarketplaceQueryService(IndexerDbContext db, IOptions<Monero
 
     private static MarketplaceResponse Response(MarketplaceRevision r)
     {
+        var message = XtopMessageReader.ReadMessage(r.Message.Data, r.Marketplace.Network);
+        var configuration = MarketplaceFormat.Read(message, r.Marketplace.Network);
         List<string> modes = [];
         if ((r.Modes & 1) != 0) modes.Add("marketplace_managed");
         if ((r.Modes & 2) != 0) modes.Add("self_managed");
@@ -53,6 +57,9 @@ public sealed class MarketplaceQueryService(IndexerDbContext db, IOptions<Monero
             r.Previous == null ? null : Hex(r.Previous.ConfigHash), r.Name, r.WebsiteUrl, r.CommunicationUrl, r.ApiVersion,
             modes.ToArray(), Atomic(r.CreationFee), r.PrimaryFeeBps, r.SecondaryFeeBps, Payout(r.FeeAddress),
             (r.Modes & 1) != 0 ? Payout(r.CustodyAddress) : null,
-            Transaction(r.Marketplace.RegistrationMessage.Transaction), Transaction(r.Message.Transaction));
+            Transaction(r.Marketplace.RegistrationMessage.Transaction), Transaction(r.Message.Transaction))
+        {
+            SecondaryPolicy = Hex(MarketplacePolicyReader.Encode(configuration, message.Witnesses[0].Proof, true))
+        };
     }
 }
