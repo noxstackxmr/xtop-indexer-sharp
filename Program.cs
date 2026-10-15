@@ -24,8 +24,9 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddConcurrencyLimiter("collections", limiter =>
     {
-        limiter.PermitLimit = 8;
-        limiter.QueueLimit = 0;
+        limiter.PermitLimit = 24;
+        limiter.QueueLimit = 256;
+        limiter.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
     });
 });
 builder.Services.AddOptions<MoneroOptions>()

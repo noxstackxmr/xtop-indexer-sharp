@@ -15,17 +15,30 @@ namespace IndexerCore.Services.Items;
 public sealed class ItemQueryService(IndexerDbContext db, CollectionStateService states, IOptions<MoneroOptions> options)
 {
     public async Task<ItemListResponse> ListAsync(byte[]? collectionId, string? status, int page, int pageSize,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, byte[]? ownerKey = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(page, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(pageSize, 100);
         if (collectionId is { Length: not 32 }) throw new ArgumentException("invalid collection id", nameof(collectionId));
+        if (ownerKey is { Length: not 32 }) throw new ArgumentException("invalid owner key", nameof(ownerKey));
         if (status is not (null or "prepared_unsold" or "sold" or "listed" or "burned")) throw new ArgumentException("invalid item status", nameof(status));
         var offset = checked((page - 1) * pageSize);
         await using var snapshot = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         var tip = await ReadTipAsync(cancellationToken);
         var query = CurrentOutputs();
+        if (ownerKey != null)
+        {
+            var owned = db.CollectionOutputs.Where(o => o.Network == options.Value.XtopNetwork && o.OwnerKey == ownerKey);
+            var directIds = owned.Where(o => o.TradeOrigin == null ||
+                (o.TradeOrigin.Operation != ListingProofs.ListOperation && o.TradeOrigin.Operation != ListingProofs.ClientListOperation))
+                .Select(o => o.Id);
+            var listedIds = owned.Where(o => o.Trade != null &&
+                (o.Trade.Operation == ListingProofs.ListOperation || o.Trade.Operation == ListingProofs.ClientListOperation))
+                .Select(o => o.Trade!.SuccessorOutputId);
+            var ownerIds = directIds.Union(listedIds);
+            query = query.Where(o => ownerIds.Contains(o.Id));
+        }
         if (collectionId != null) query = query.Where(o => o.Collection.ProtocolId == collectionId);
         if (status == "prepared_unsold") query = query.Where(o => o.PurchaseOrigin == null && o.TradeOrigin == null && o.Burn == null);
         if (status == "sold") query = query.Where(o => (o.PurchaseOrigin != null ||

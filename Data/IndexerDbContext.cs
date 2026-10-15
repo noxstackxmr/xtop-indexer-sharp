@@ -95,6 +95,7 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
         output.HasIndex(o => new { o.CollectionId, o.Kind });
         output.HasIndex(o => new { o.Network, o.KeyImage }).IsUnique();
         output.HasIndex(o => new { o.Network, o.ItemId });
+        output.HasIndex(o => new { o.Network, o.OwnerKey, o.CollectionId });
         output.Property(o => o.ItemId).HasMaxLength(32);
         output.Property(o => o.Kind).HasConversion<byte>();
         output.Property(o => o.PublicKey).HasMaxLength(32);

@@ -13,15 +13,18 @@ public sealed class ItemsController(ItemQueryService items) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<ItemListResponse>> GetList(CancellationToken cancellationToken,
         [FromQuery] string? collectionId = null, [FromQuery] string? status = null,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? ownerKey = null)
     {
         if (collectionId != null && !IsId(collectionId))
             return Problem(statusCode: 400, title: "invalid collection id", detail: "expected 64 hex characters");
+        if (ownerKey != null && !IsId(ownerKey))
+            return Problem(statusCode: 400, title: "invalid owner key", detail: "expected 64 hex characters");
         if (status is not (null or "prepared_unsold" or "sold" or "listed" or "burned"))
             return Problem(statusCode: 400, title: "invalid item status", detail: "status must be prepared_unsold, sold, listed or burned");
         if (page < 1 || pageSize is < 1 or > 100 || (long)(page - 1) * pageSize > int.MaxValue)
             return Problem(statusCode: 400, title: "invalid pagination", detail: "page must be positive, pageSize must be 1..100, and the offset must fit int32");
-        return Ok(await items.ListAsync(collectionId == null ? null : Convert.FromHexString(collectionId), status, page, pageSize, cancellationToken));
+        return Ok(await items.ListAsync(collectionId == null ? null : Convert.FromHexString(collectionId), status, page, pageSize, cancellationToken,
+            ownerKey == null ? null : Convert.FromHexString(ownerKey)));
     }
 
     [HttpGet("{itemId}")]

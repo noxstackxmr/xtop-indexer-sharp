@@ -329,6 +329,8 @@ namespace IndexerCore.Data.Migrations
                     b.HasIndex("SourceMessageId", "OutputIndex")
                         .IsUnique();
 
+                    b.HasIndex("Network", "OwnerKey", "CollectionId");
+
                     b.ToTable("CollectionOutputs");
                 });
 
