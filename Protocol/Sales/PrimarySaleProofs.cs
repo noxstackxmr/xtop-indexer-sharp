@@ -12,6 +12,16 @@ public sealed record PrimarySaleResult(byte[] ItemId, NewBinding Buyer, byte[] S
 
 public static class PrimarySaleProofs
 {
+    public static PrimarySaleResult VerifyPrices(MoneroProofTransaction tx, PrimarySalePolicy policy, ulong? earlyPrice)
+    {
+        if (earlyPrice is {} early && early != policy.Price)
+        {
+            if (early == 0 || early > policy.Price) throw new FormatException("invalid early price");
+            try { return Verify(tx, policy with { Price = early }); }
+            catch (Exception e) when (e is CryptographicException or FormatException) { }
+        }
+        return Verify(tx, policy);
+    }
     public const ushort Profile = 0xFF07;
     public static ulong Fee(PrimarySalePolicy policy) => checked((ulong)((UInt128)policy.Price * policy.FeeBps / 10_000));
     public static int MessageLength(PrimarySalePolicy policy) => Fee(policy) == 0 ? 562 : 659;

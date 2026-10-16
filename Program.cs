@@ -66,6 +66,11 @@ builder.Services.AddScoped<ListingQueryService>();
 builder.Services.AddScoped<MarketGalleryQuery>();
 builder.Services.AddScoped<PendingListingQuery>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddHttpClient("xmr-usd", http => http.Timeout = TimeSpan.FromSeconds(8));
+builder.Services.AddSingleton(services => new IndexerCore.Services.Marketplaces.XmrUsdRate(
+    services.GetRequiredService<IHttpClientFactory>().CreateClient("xmr-usd"), services.GetRequiredService<TimeProvider>(),
+    services.GetRequiredService<ILogger<IndexerCore.Services.Marketplaces.XmrUsdRate>>()));
+builder.Services.AddHostedService(services => services.GetRequiredService<IndexerCore.Services.Marketplaces.XmrUsdRate>());
 builder.Services.AddSingleton<PendingListingsPool>();
 builder.Services.AddHostedService(s => s.GetRequiredService<PendingListingsPool>());
 builder.Services.AddScoped<IndexerCore.Services.Transactions.TransactionStatusQueryService>();

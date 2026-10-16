@@ -6,6 +6,7 @@ namespace IndexerCore.Protocol.Messages;
 internal ref struct PayloadReader(ReadOnlySpan<byte> data)
 {
     private ReadOnlySpan<byte> remaining = data;
+    public int Remaining => remaining.Length;
 
     public byte ReadByte() => Take(1)[0];
     public ushort ReadUInt16() => BinaryPrimitives.ReadUInt16LittleEndian(Take(2));

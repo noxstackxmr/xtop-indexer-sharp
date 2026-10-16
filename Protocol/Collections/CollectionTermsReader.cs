@@ -7,7 +7,10 @@ namespace IndexerCore.Protocol.Collections;
 public sealed record StandardAddress(byte[] PublicSpendKey, byte[] PublicViewKey);
 public sealed record CollectionTerms(string Name, uint MaxSupply, byte MetadataMode, StandardAddress PrimaryPayout,
     StandardAddress RoyaltyPayout, ushort RoyaltyBps, byte ManagerPermissions, ChunkReference InitialLocations,
-    ulong PrimaryPrice, ulong SaleStartUtc);
+    ulong PrimaryPrice, ulong SaleStartUtc)
+{
+    public ulong? EarlyAccessPrice { get; init; }
+}
 
 public static class CollectionTermsReader
 {
@@ -37,8 +40,17 @@ public static class CollectionTermsReader
         var primaryPrice = reader.ReadUInt64();
         var saleStartUtc = reader.ReadUInt64();
         if (saleStartUtc > 253402300799) throw new FormatException("sale start exceeds supported UTC range");
+        ulong? earlyPrice = null;
+        if (reader.Remaining != 0)
+        {
+            if (message.Version != 15 || !reader.Take(4).SequenceEqual("PRC1"u8))
+                throw new FormatException("unsupported primary pricing extension");
+            earlyPrice = reader.ReadUInt64();
+            if (primaryPrice == 0 || earlyPrice == 0 || earlyPrice > primaryPrice)
+                throw new FormatException("early access price must be positive and at most the public price");
+        }
         reader.EnsureEnd();
         return new CollectionTerms(name, maxSupply, metadataMode, primaryPayout, royaltyPayout, royaltyBps,
-            managerPermissions, locations, primaryPrice, saleStartUtc);
+            managerPermissions, locations, primaryPrice, saleStartUtc) { EarlyAccessPrice = earlyPrice };
     }
 }

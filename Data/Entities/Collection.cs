@@ -19,6 +19,7 @@ public sealed class Collection
     public required byte[] RoyaltyPayout { get; set; }
     public int RoyaltyBps { get; set; }
     public decimal PrimaryPrice { get; set; }
+    public decimal? EarlyAccessPrice { get; set; }
     public DateTimeOffset SaleStartUtc { get; set; }
 
     public Message CreationMessage { get; set; } = null!;

@@ -13,7 +13,10 @@ using static IndexerCore.Services.Items.ItemReadData;
 
 namespace IndexerCore.Services.Listings;
 
-public sealed record MarketGalleryRow(ItemResponse Item, ListingResponse? Listing, PendingListing? Pending);
+public sealed record MarketGalleryRow(ItemResponse Item, ListingResponse? Listing, PendingListing? Pending)
+{
+    public string? PurchaseState { get; init; }
+}
 public sealed record MarketGalleryResponse(string Network, byte NetworkId, ScannedTipResponse? ScannedTip,
     ScannedTipResponse? SpendCheckedTip, int Page, int PageSize, int Total, int ConfirmedTotal, int PendingTotal,
     bool PoolAvailable, bool PoolTruncated, MarketGalleryRow[] Entries);
@@ -34,15 +37,15 @@ public sealed class MarketGalleryQuery(IndexerDbContext db, ItemQueryService ite
         var confirmed = await db.ItemTrades.AsNoTracking().Where(t =>
             t.PreviousOutput.Network == options.Value.XtopNetwork && t.PreviousOutput.Collection.ProtocolId == collectionId &&
             t.MarketplaceId == marketplaceId && (t.Operation == ListingProofs.ListOperation || t.Operation == ListingProofs.ClientListOperation) &&
-            t.SuccessorOutput.Trade == null && t.SuccessorOutput.Burn == null)
+            t.SuccessorOutput.Burn == null && t.SuccessorOutput.Trade == null)
             .Select(t => new { t.MessageId,ItemId=t.SuccessorOutput.ItemId!,Serial=t.SuccessorOutput.RangeStart!.Value,
                 Price=t.Price!.Value,t.Message.Transaction.Block.Height,t.Message.Transaction.Position })
             .ToArrayAsync(token);
         var keys = confirmed.Select(t => new SortKey(t.MessageId,Hex(t.ItemId),t.Serial,t.Price,t.Height,t.Position,null)).ToList();
-        var confirmedIds = keys.Select(k=>k.ItemId).ToHashSet(StringComparer.Ordinal);
+        var activeIds = confirmed.Select(c=>Hex(c.ItemId)).ToHashSet(StringComparer.Ordinal);
         var available = pool.Available && tip != null && tip == spend && pool.CheckedTip == tip.Hash;
-        var pending = available ? pool.Listings.Where(p => p.CollectionId == Hex(collectionId) && p.MarketplaceId == Hex(marketplaceId) &&
-                !confirmedIds.Contains(p.Item.ItemId))
+        var pending = available ? pool.Listings.Where(p => p.PurchaseListingId == null && p.CollectionId == Hex(collectionId) && p.MarketplaceId == Hex(marketplaceId) &&
+                !activeIds.Contains(p.Item.ItemId))
             .GroupBy(p=>p.Item.ItemId).Select(g=>g.OrderByDescending(p=>p.FirstSeenAt).ThenBy(p=>p.TransactionId,StringComparer.Ordinal).First()).ToArray() : [];
         keys.AddRange(pending.Select(p=>new SortKey(0,p.Item.ItemId,p.Item.Serial,decimal.Parse(p.PriceAtomic,CultureInfo.InvariantCulture),0,0,p)));
         var filtered = keys.Where(k => search.Length == 0 || k.Serial.ToString("D4",CultureInfo.InvariantCulture).Contains(search) || k.ItemId.Contains(search));
@@ -57,7 +60,11 @@ public sealed class MarketGalleryQuery(IndexerDbContext db, ItemQueryService ite
         var confirmedPage = selected.Where(k=>k.Pending == null).ToArray();
         var pageListings = (await listings.ReadBatchAsync(confirmedPage.Select(k=>k.MessageId).ToArray(),spend,token)).ToDictionary(l=>l.ItemId);
         var pageItems = (await items.ReadBatchAsync(confirmedPage.Select(k=>Convert.FromHexString(k.ItemId)).ToArray(),token)).ToDictionary(i=>i.ItemId);
-        var rows = selected.Select(k=>k.Pending is {} p ? new MarketGalleryRow(p.Item,null,p) : new MarketGalleryRow(pageItems[k.ItemId],pageListings[k.ItemId],null)).ToArray();
+        var pendingPurchases = available ? pool.Listings.Where(p=>p.PurchaseListingId != null).Select(p=>p.PurchaseListingId!).ToHashSet() : [];
+        var rows = selected.Select(k=>k.Pending is {} p ? new MarketGalleryRow(p.Item,null,p) :
+            new MarketGalleryRow(pageItems[k.ItemId],pageListings[k.ItemId],null) {
+                PurchaseState = pendingPurchases.Contains(pageListings[k.ItemId].Id) ? "purchase_pending" : null
+            }).ToArray();
         var result = new MarketGalleryResponse(options.Value.Network,options.Value.XtopNetwork,tip,spend,page,pageSize,
             filtered.Count(),confirmed.Length,pending.Length,available,pool.Truncated,rows);
         await snapshot.CommitAsync(token);

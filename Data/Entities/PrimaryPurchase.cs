@@ -7,6 +7,7 @@ public sealed class PrimaryPurchase
     public int Profile { get; set; }
     public int FeeBps { get; set; }
     public decimal CreatorAmount { get; set; }
+    public decimal? UnitPrice { get; set; }
     public decimal PlatformFee { get; set; }
     public Message Message { get; set; } = null!;
     public Collection Collection { get; set; } = null!;

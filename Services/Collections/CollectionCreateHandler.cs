@@ -54,6 +54,7 @@ public sealed class CollectionCreateHandler(IndexerDbContext db, CollectionTerms
             PrimaryPayout = [.. terms.PrimaryPayout.PublicSpendKey, .. terms.PrimaryPayout.PublicViewKey],
             RoyaltyPayout = [.. terms.RoyaltyPayout.PublicSpendKey, .. terms.RoyaltyPayout.PublicViewKey],
             RoyaltyBps = terms.RoyaltyBps, PrimaryPrice = terms.PrimaryPrice,
+            EarlyAccessPrice = terms.EarlyAccessPrice,
             SaleStartUtc = DateTimeOffset.FromUnixTimeSeconds((long)terms.SaleStartUtc)
         };
         CollectionOutput Output(NewBinding binding, CollectionOutputKind kind) => new()

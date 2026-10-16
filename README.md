@@ -49,3 +49,7 @@ Native binaries are built in `Monero/Native/build`. Build and publish copy the m
 | `/api/items/{itemId}/history?page=1&pageSize=20` | Item preparation, purchases, listings, cancellations and external spends, with secondary sale modes, newest first |
 | `/api/transactions/{transactionId}` | Canonical indexed transaction, message validation status and block reference; null transaction while absent |
 | `/api/bindings/{keyImage}` | Whether a key image is bound to a protocol output, with scanned and processed tips |
+
+### XMR/USD display quote
+
+`GET /api/marketplaces/rates/xmr-usd` reads an immutable in-memory quote. A single background worker reads Kraken public XMR/USD ticker last-trade price every 5 minutes, retrying after 1 minute on failure. Requests have an 8-second timeout and a 64 KiB response limit. HTTP readers never contact Kraken. Invalid responses retain the previous quote, which becomes stale after 10 minutes and unavailable after 1 hour. `updatedAt` is server fetch time, not the trade timestamp; `serverTime` supports clients with inaccurate clocks. No exchange API key is required.

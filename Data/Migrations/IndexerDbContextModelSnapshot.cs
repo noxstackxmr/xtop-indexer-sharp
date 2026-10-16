@@ -119,6 +119,10 @@ namespace IndexerCore.Data.Migrations
                     b.Property<long>("CreationMessageId")
                         .HasColumnType("bigint");
 
+                    b.Property<decimal?>("EarlyAccessPrice")
+                        .HasPrecision(20)
+                        .HasColumnType("numeric(20,0)");
+
                     b.Property<long>("LocationsAttachmentId")
                         .HasColumnType("bigint");
 
@@ -622,6 +626,10 @@ namespace IndexerCore.Data.Migrations
 
                     b.Property<int>("Profile")
                         .HasColumnType("integer");
+
+                    b.Property<decimal?>("UnitPrice")
+                        .HasPrecision(20)
+                        .HasColumnType("numeric(20,0)");
 
                     b.HasKey("MessageId");
 

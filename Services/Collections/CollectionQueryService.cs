@@ -77,7 +77,8 @@ public sealed class CollectionQueryService(IndexerDbContext db, CollectionStateS
             collection.CreationMessage.Version, Hex(collection.ConfigHash), collection.Name, collection.MaxSupply,
             MetadataMode(collection.MetadataMode), state.Metadata.Status, collection.ManagerPermissions,
             new PrimarySaleTermsResponse(Atomic(collection.PrimaryPrice), collection.SaleStartUtc.ToUniversalTime(), Payout(collection.PrimaryPayout),
-                feeBps, fee == null ? null : Atomic(fee.Value), fee == null ? null : Atomic(collection.PrimaryPrice + fee.Value)),
+                feeBps, fee == null ? null : Atomic(fee.Value), fee == null ? null : Atomic(collection.PrimaryPrice + fee.Value))
+                { EarlyAccessPriceAtomic = collection.EarlyAccessPrice is {} early ? Atomic(early) : null },
             new RoyaltyTermsResponse(collection.RoyaltyBps, Payout(collection.RoyaltyPayout)),
             new CollectionCreationResponse(Hex(transaction.Hash), block.Height, Hex(block.Hash), transaction.Position, block.Timestamp.ToUniversalTime()),
             Reference(collection.TermsAttachment), Reference(collection.LocationsAttachment),

@@ -15,6 +15,7 @@ public sealed record PendingListing(string TransactionId, string CollectionId, s
     string SellerOwnerKey, string PriceAtomic, string Mode, string Status, bool CanBuy, ItemResponse Item)
 {
     public DateTimeOffset? FirstSeenAt { get; init; }
+    public string? PurchaseListingId { get; init; }
 }
 
 public sealed class PendingListingQuery(IndexerDbContext db, SecondaryTradeHandler trades,
@@ -25,7 +26,8 @@ public sealed class PendingListingQuery(IndexerDbContext db, SecondaryTradeHandl
         var data = XtopMessageReader.ExtractMessage(candidate.Extra);
         if (data == null) return null;
         var envelope = XtopMessageReader.ReadMessage(data, options.Value.XtopNetwork);
-        if (!ListingModes.IsListing(envelope.Operation)) return null;
+        var purchase = envelope.Operation == SecondaryPurchaseProofs.Operation;
+        if (!ListingModes.IsListing(envelope.Operation) && !purchase) return null;
         var message = new Message { Data = data, Version = envelope.Version, Network = options.Value.XtopNetwork, Operation = envelope.Operation };
         message.Transaction = new Transaction
         {
@@ -38,7 +40,14 @@ public sealed class PendingListingQuery(IndexerDbContext db, SecondaryTradeHandl
         var owner = Convert.ToHexStringLower(result.PreviousOutput.OwnerKey);
         db.ChangeTracker.Clear();
         var item = (await items.GetAsync(itemId, token))?.Item;
-        if (item == null || item.Burn != null || item.Listing != null || item.OwnerKey != owner) return null;
+        if (item == null || item.Burn != null || item.OwnerKey != owner) return null;
+        if (purchase)
+        {
+            if (item.Listing == null) return null;
+            return new(candidate.Id, item.CollectionId, Convert.ToHexStringLower(result.MarketplaceId), owner,
+                "0", item.Listing.Mode, "purchase_pending", false, item) { PurchaseListingId = item.Listing.TransactionId };
+        }
+        if (item.Listing != null) return null;
         return new(candidate.Id, item.CollectionId, Convert.ToHexStringLower(result.MarketplaceId), owner,
             result.Price!.Value.ToString("0", CultureInfo.InvariantCulture), ListingModes.Name(envelope.Operation), "submitted", false, item);
     }

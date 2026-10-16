@@ -50,7 +50,9 @@ public sealed class PendingListingsPool(MoneroRpcClient rpc, IServiceScopeFactor
                 try
                 {
                     var data = XtopMessageReader.ExtractMessage(transaction.Extra);
-                    if (data == null || !ListingModes.IsListing(XtopMessageReader.ReadOperation(data))) continue;
+                    if (data == null) continue;
+                    var operation = XtopMessageReader.ReadOperation(data);
+                    if (!ListingModes.IsListing(operation) && operation != SecondaryPurchaseProofs.Operation) continue;
                     if (tracked.Values.Count(value => value != null) >= 4096) { tracked.Remove(transaction.Id); continue; }
                     tracked[transaction.Id] = new Candidate(transaction, clock.GetUtcNow());
                 }

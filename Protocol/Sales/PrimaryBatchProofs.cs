@@ -9,6 +9,17 @@ public sealed record PrimaryBatchResult(NewBinding[] Buyers, ulong CreatorAmount
 
 public static class PrimaryBatchProofs
 {
+    public static PrimaryBatchResult VerifyPrices(MoneroProofTransaction tx, PrimarySalePolicy[] policies, ulong? earlyPrice)
+    {
+        _ = Totals(policies);
+        if (earlyPrice is {} early && early != policies[0].Price)
+        {
+            if (early == 0 || early > policies[0].Price) throw new FormatException("invalid early price");
+            try { return Verify(tx, policies.Select(p => p with { Price = early }).ToArray()); }
+            catch (Exception e) when (e is CryptographicException or FormatException) { }
+        }
+        return Verify(tx, policies);
+    }
     public const byte Operation = 0x13;
     public const ushort Profile = 0xFF08;
     private static bool Same(byte[] a, byte[] b) => a.AsSpan().SequenceEqual(b);

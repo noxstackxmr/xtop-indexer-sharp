@@ -77,6 +77,7 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
         collection.Property(c => c.PrimaryPayout).HasMaxLength(64);
         collection.Property(c => c.RoyaltyPayout).HasMaxLength(64);
         collection.Property(c => c.PrimaryPrice).HasPrecision(20, 0);
+        collection.Property(c => c.EarlyAccessPrice).HasPrecision(20, 0);
         collection.HasOne(c => c.CreationMessage)
             .WithOne()
             .HasForeignKey<Collection>(c => c.CreationMessageId)
@@ -131,6 +132,7 @@ public sealed class IndexerDbContext(DbContextOptions<IndexerDbContext> options)
         var purchase = modelBuilder.Entity<PrimaryPurchase>();
         purchase.HasKey(p => p.MessageId);
         purchase.Property(p => p.CreatorAmount).HasPrecision(20, 0);
+        purchase.Property(p => p.UnitPrice).HasPrecision(20, 0);
         purchase.Property(p => p.PlatformFee).HasPrecision(20, 0);
         purchase.HasOne(p => p.Message).WithOne().HasForeignKey<PrimaryPurchase>(p => p.MessageId).OnDelete(DeleteBehavior.Cascade);
         purchase.HasOne(p => p.Collection).WithMany().HasForeignKey(p => p.CollectionId).OnDelete(DeleteBehavior.Cascade);

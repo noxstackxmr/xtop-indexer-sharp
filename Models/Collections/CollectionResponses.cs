@@ -18,7 +18,10 @@ public sealed record CollectionListResponse(string Network, byte NetworkId, Scan
 public sealed record PayoutResponse(string PublicSpendKey, string PublicViewKey);
 
 public sealed record PrimarySaleTermsResponse(string PriceAtomic, DateTimeOffset StartUtc, PayoutResponse Payout,
-    int? PlatformFeeBps, string? PlatformFeeAtomic, string? TotalPriceAtomic);
+    int? PlatformFeeBps, string? PlatformFeeAtomic, string? TotalPriceAtomic)
+{
+    public string? EarlyAccessPriceAtomic { get; init; }
+}
 
 public sealed record RoyaltyTermsResponse(int BasisPoints, PayoutResponse Payout);
 

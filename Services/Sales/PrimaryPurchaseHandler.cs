@@ -59,14 +59,15 @@ public sealed class PrimaryPurchaseHandler(IndexerDbContext db, ProtocolConfigur
             OriginalBinding(s), s.PublicKey, new ChunkReference(s.Collection.TermsAttachment.Hash, checked((uint)s.Collection.TermsAttachment.TotalLength),
                 s.Collection.TermsAttachment.MerkleRoot), s.Collection.PrimaryPayout, checked((ulong)s.Collection.PrimaryPrice), feeBps)).ToArray();
         NewBinding[] buyers; ulong creatorAmount, platformFee;
+        var earlyPrice = sources[0].Collection.EarlyAccessPrice is {} early ? (ulong?)checked((ulong)early) : null;
         if (batch)
         {
-            var result = PrimaryBatchProofs.Verify(native, policies);
+            var result = PrimaryBatchProofs.VerifyPrices(native, policies, earlyPrice);
             buyers = result.Buyers; creatorAmount = result.CreatorAmount; platformFee = result.PlatformFee;
         }
         else
         {
-            var result = PrimarySaleProofs.Verify(native, policies[0]);
+            var result = PrimarySaleProofs.VerifyPrices(native, policies[0], earlyPrice);
             buyers = [result.Buyer]; creatorAmount = result.CreatorAmount; platformFee = result.PlatformFee;
         }
         if (await db.PrimaryPurchases.AnyAsync(p => p.MessageId == message.TransactionId, cancellationToken)) return;
@@ -79,7 +80,7 @@ public sealed class PrimaryPurchaseHandler(IndexerDbContext db, ProtocolConfigur
                 throw new FormatException("buyer key image is already bound");
 
         var purchase = new PrimaryPurchase { Message = message, Collection = sources[0].Collection, Profile = profile,
-            FeeBps = feeBps, CreatorAmount = creatorAmount, PlatformFee = platformFee };
+            FeeBps = feeBps, CreatorAmount = creatorAmount, PlatformFee = platformFee, UnitPrice = creatorAmount / (ulong)sources.Count };
         for (var i = 0; i < sources.Count; i++)
         {
             var source = sources[i]; var buyer = buyers[i];

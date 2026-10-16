@@ -18,7 +18,7 @@ public sealed class PendingListingsController(PendingListingsPool pool, IOptions
         if (!Id(collectionId) || !Id(marketplaceId) || page < 1 || pageSize is < 1 or > 100 || (long)(page - 1) * pageSize > int.MaxValue)
             return BadRequest(new { error = "invalid_pending_filter" });
         var snapshot = pool.Snapshot();
-        var rows = snapshot.Listings.Where(l => (collectionId == null || l.CollectionId == collectionId.ToLowerInvariant()) &&
+        var rows = snapshot.Listings.Where(l => l.PurchaseListingId == null && (collectionId == null || l.CollectionId == collectionId.ToLowerInvariant()) &&
             (marketplaceId == null || l.MarketplaceId == marketplaceId.ToLowerInvariant())).ToArray();
         return Ok(new { network = network.Value.Network, networkId = network.Value.XtopNetwork, snapshot.UpdatedAt,
             snapshot.Available, snapshot.Truncated, snapshot.CheckedTip, page, pageSize, total = rows.Length, listings = rows.Skip((page - 1) * pageSize).Take(pageSize) });

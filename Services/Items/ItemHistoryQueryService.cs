@@ -72,7 +72,7 @@ public sealed class ItemHistoryQueryService(IndexerDbContext db, IOptions<Monero
         var from = trade?.Listing?.PreviousOutput.OwnerKey ?? previous?.OwnerKey;
         var service = trade == null ? null : listed ? output.OwnerKey : trade.PreviousOutput.OwnerKey;
         var listingId = trade == null ? null : listed ? output.SourceMessage.Transaction.Hash : trade.Listing!.Message.Transaction.Hash;
-        decimal? price = trade == null ? primary == null ? null : output.Collection.PrimaryPrice : (trade.Price ?? trade.Listing!.Price);
+        decimal? price = trade == null ? primary == null ? null : (primary.Purchase.UnitPrice ?? output.Collection.PrimaryPrice) : (trade.Price ?? trade.Listing!.Price);
         ItemHistoryPaymentsResponse? payments = null;
         if (primary != null)
         {
