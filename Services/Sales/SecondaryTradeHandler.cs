@@ -13,6 +13,14 @@ public sealed class SecondaryTradeHandler(IndexerDbContext db, ProtocolConfigura
 {
     public async Task HandleAsync(Message message, XtopMessage envelope, CancellationToken cancellationToken)
     {
+        var trade = await ValidateAsync(message, envelope, cancellationToken);
+        if (trade == null) return;
+        db.ItemTrades.Add(trade);
+        if (trade.PreviousOutput.Burn != null) db.ItemBurns.Remove(trade.PreviousOutput.Burn);
+    }
+    
+    public async Task<ItemTrade?> ValidateAsync(Message message, XtopMessage envelope, CancellationToken cancellationToken)
+    {
         if (envelope.Witnesses.Length != 1 || envelope.Witnesses[0].Kind != 7) throw new FormatException("secondary proof is required");
         var transaction = message.Transaction; var block = transaction.Block;
         var native = await transactions.ReadAsync(message, cancellationToken);
@@ -94,7 +102,7 @@ public sealed class SecondaryTradeHandler(IndexerDbContext db, ProtocolConfigura
                 payments = SecondaryPurchaseProofs.Payments(policy, listing.Terms, fees);
             }
         }
-        if (await db.ItemTrades.AnyAsync(t => t.MessageId == message.TransactionId, cancellationToken)) return;
+        if (await db.ItemTrades.AnyAsync(t => t.MessageId == message.TransactionId, cancellationToken)) return null;
         if (await db.CollectionOutputs.AnyAsync(o => o.Network == block.Network && o.KeyImage == next.KeyImage, cancellationToken) ||
             await db.CollectionChanges.AnyAsync(c => c.Network == block.Network && c.KeyImage == next.KeyImage, cancellationToken))
             throw new FormatException("successor key image is already bound");
@@ -106,7 +114,7 @@ public sealed class SecondaryTradeHandler(IndexerDbContext db, ProtocolConfigura
             RangeStart = previous.RangeStart, RangeEnd = previous.RangeEnd
         };
         decimal? Paid(byte role) => payments == null ? null : payments.SingleOrDefault(p => p.Role == role)?.Amount ?? 0UL;
-        db.ItemTrades.Add(new ItemTrade
+        return new ItemTrade
         {
             Message = message, Operation = envelope.Operation, PreviousOutput = previous, SuccessorOutput = successor,
             MarketplaceId = marketplace?.Identity(block.Network), MarketplaceConfigHash = marketplace?.ConfigHash,
@@ -114,8 +122,7 @@ public sealed class SecondaryTradeHandler(IndexerDbContext db, ProtocolConfigura
             Listing = opening, Price = terms?.Price, SellerPayout = terms?.SellerPayout, ReturnAddress = terms?.ReturnAddress,
             ServiceAddress = terms?.ServiceAddress, FeeBps = feeBps,
             SellerAmount = Paid(4), RoyaltyAmount = Paid(2), PlatformFee = Paid(3)
-        });
-        if (previous.Burn != null) db.ItemBurns.Remove(previous.Burn);
+        };
     }
 
     private static ListingItem Item(CollectionOutput output, byte[] collectionId)

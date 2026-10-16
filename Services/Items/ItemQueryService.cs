@@ -72,6 +72,15 @@ public sealed class ItemQueryService(IndexerDbContext db, CollectionStateService
         await snapshot.CommitAsync(cancellationToken);
         return result;
     }
+    
+    internal async Task<ItemResponse[]> ReadBatchAsync(byte[][] itemIds, CancellationToken cancellationToken)
+    {
+        if (itemIds.Length == 0) return [];
+        var rows = await WithDetails(CurrentOutputs().Where(o => itemIds.Contains(o.ItemId!))).ToArrayAsync(cancellationToken);
+        var metadata = await ReadMetadataAsync(rows, cancellationToken);
+        var primary = await ReadPrimaryAsync(rows, cancellationToken);
+        return rows.Select(o => Response(o, metadata[o.CollectionId], primary.GetValueOrDefault((o.CollectionId,o.RangeStart!.Value)))).ToArray();
+    }
 
     private IQueryable<CollectionOutput> CurrentOutputs() => db.CollectionOutputs.AsNoTracking()
         .Where(o => o.Network == options.Value.XtopNetwork && o.Kind == CollectionOutputKind.Item && o.ItemId != null &&

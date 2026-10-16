@@ -14,7 +14,8 @@ namespace IndexerCore.Services.Listings;
 
 public sealed class ListingQueryService(IndexerDbContext db, ProtocolConfigurationRegistry configurations, IOptions<MoneroOptions> options)
 {
-    public async Task<ListingListResponse> ListAsync(byte[]? collectionId, int page, int pageSize, CancellationToken cancellationToken)
+    public async Task<ListingListResponse> ListAsync(byte[]? collectionId, int page, int pageSize, CancellationToken cancellationToken,
+        byte[]? sellerOwnerKey = null, byte[]? marketplaceId = null, string? mode = null)
     {
         if (collectionId is { Length: not 32 }) throw new ArgumentException("invalid collection id", nameof(collectionId));
         var offset = Offset(page, pageSize);
@@ -23,6 +24,10 @@ public sealed class ListingQueryService(IndexerDbContext db, ProtocolConfigurati
         var spendTip = await Tip(db, options.Value.XtopNetwork, true, cancellationToken);
         var query = Listings().Where(t => t.SuccessorOutput.Trade == null && t.SuccessorOutput.Burn == null);
         if (collectionId != null) query = query.Where(t => t.PreviousOutput.Collection.ProtocolId == collectionId);
+        if (sellerOwnerKey != null) query = query.Where(t => t.PreviousOutput.OwnerKey == sellerOwnerKey);
+        if (marketplaceId != null) query = query.Where(t => t.MarketplaceId == marketplaceId);
+        if (mode == "client") query = query.Where(t => t.Operation == ListingProofs.ClientListOperation);
+        if (mode == "marketplace") query = query.Where(t => t.Operation == ListingProofs.ListOperation);
         var total = await query.LongCountAsync(cancellationToken);
         var rows = await Details(query).OrderByDescending(t => t.Message.Transaction.Block.Height)
             .ThenByDescending(t => t.Message.Transaction.Position).ThenByDescending(t => t.MessageId)
@@ -44,6 +49,13 @@ public sealed class ListingQueryService(IndexerDbContext db, ProtocolConfigurati
         var result = new ListingDetailsResponse(options.Value.Network, options.Value.XtopNetwork, tip, spendTip, Response(row, spendTip));
         await snapshot.CommitAsync(cancellationToken);
         return result;
+    }
+
+    internal async Task<ListingResponse[]> ReadBatchAsync(long[] messageIds, ScannedTipResponse? spendTip, CancellationToken token)
+    {
+        if (messageIds.Length == 0) return [];
+        var rows = await Details(Listings().Where(t => messageIds.Contains(t.MessageId))).ToArrayAsync(token);
+        return rows.Select(t => Response(t, spendTip)).ToArray();
     }
 
     private IQueryable<ItemTrade> Listings() => db.ItemTrades.AsNoTracking()

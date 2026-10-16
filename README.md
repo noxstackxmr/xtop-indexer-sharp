@@ -44,6 +44,8 @@ Native binaries are built in `Monero/Native/build`. Build and publish copy the m
 | `/api/items/{itemId}` | Owner, output, metadata, primary purchase, burn data and active listing mode |
 | `/api/listings?page=1&pageSize=20` | Active listings, mode, signer, prices, payout keys and output maturity; optional `collectionId` filter |
 | `/api/listings/{listingId}` | Listing mode, terms, output and current status, including purchased, cancelled or burned listings |
+| `/api/listings/pending?collectionId=...&marketplaceId=...&page=1&pageSize=20` | Shared, proof-checked listings currently in the daemon mempool; never purchasable |
+| `/api/listings/gallery?collectionId=...&marketplaceId=...&sort=newest&search=&page=1&pageSize=24` | One paginated gallery of pending and active listings, with page-sized item metadata |
 | `/api/items/{itemId}/history?page=1&pageSize=20` | Item preparation, purchases, listings, cancellations and external spends, with secondary sale modes, newest first |
 | `/api/transactions/{transactionId}` | Canonical indexed transaction, message validation status and block reference; null transaction while absent |
 | `/api/bindings/{keyImage}` | Whether a key image is bound to a protocol output, with scanned and processed tips |

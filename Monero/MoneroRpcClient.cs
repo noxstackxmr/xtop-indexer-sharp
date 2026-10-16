@@ -9,6 +9,50 @@ public sealed record MoneroTransaction(string Id, byte[] Extra, byte[] NativeDat
 
 public sealed class MoneroRpcClient(HttpClient http)
 {
+    public async Task<string[]> GetPoolHashesAsync(CancellationToken token)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "get_transaction_pool_hashes")
+        { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
+        await response.Content.LoadIntoBufferAsync(2_000_000, token);
+        using var document = await ReadResponseAsync(response, token);
+        CheckStatus(document.RootElement);
+        var hashes = document.RootElement.TryGetProperty("tx_hashes", out var ids)
+            ? ids.EnumerateArray().Select(id => id.GetString()!).ToArray() : [];
+        if (hashes.Length > 20000 || hashes.Any(id => id == null || id.Length != 64 || !id.All(char.IsAsciiHexDigit)) || hashes.Distinct().Count() != hashes.Length)
+            throw new InvalidDataException("invalid or oversized mempool hash list");
+        return hashes.Select(id => id.ToLowerInvariant()).ToArray();
+    }
+
+    public async Task<MoneroTransaction[]> GetPoolTransactionsAsync(string[] hashes, CancellationToken token)
+    {
+        if (hashes.Length is < 1 or > 20) throw new ArgumentException("pool batch must contain 1..20 hashes");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "get_transactions")
+        { Content = new StringContent(JsonSerializer.Serialize(new { txs_hashes = hashes, decode_as_json = true, prune = true }), Encoding.UTF8, "application/json") };
+        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
+        await response.Content.LoadIntoBufferAsync(8_000_000, token);
+        using var document = await ReadResponseAsync(response, token);
+        CheckStatus(document.RootElement);
+        var found = new List<MoneroTransaction>();
+        var seen = new HashSet<string>();
+        if (!document.RootElement.TryGetProperty("txs", out var txs)) return [];
+        foreach (var entry in txs.EnumerateArray())
+        {
+            var id = entry.GetProperty("tx_hash").GetString()!;
+            if (!hashes.Contains(id) || !seen.Add(id)) throw new InvalidDataException("unexpected pool transaction");
+            if (!entry.GetProperty("in_pool").GetBoolean()) continue;
+            using var decoded = JsonDocument.Parse(entry.GetProperty("as_json").GetString()!);
+            var extraJson = decoded.RootElement.GetProperty("extra");
+            if (extraJson.GetArrayLength() > 1060) continue;
+            var extra = extraJson.EnumerateArray().Select(b => b.GetByte()).ToArray();
+            var hex = entry.TryGetProperty("pruned_as_hex", out var pruned) ? pruned.GetString() : null;
+            if (string.IsNullOrEmpty(hex)) hex = entry.GetProperty("as_hex").GetString();
+            if (string.IsNullOrEmpty(hex) || hex.Length > 65536) continue;
+            found.Add(new(id, extra, Convert.FromHexString(hex)));
+        }
+        return found.ToArray();
+    }
+
     public async Task<MoneroChainInfo> GetInfoAsync(CancellationToken cancellationToken)
     {
         using var response = await http.GetAsync("get_info", cancellationToken);
